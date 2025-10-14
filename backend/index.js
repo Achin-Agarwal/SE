@@ -25,7 +25,6 @@ app.use();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-connectMongo();
 
 app.use((err, req, res, next) => {
   console.error("Error encountered:", err);
