@@ -1,11 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:app/providers/userid.dart';
 
-class VendorDetailCard extends StatelessWidget {
+class VendorDetailCard extends ConsumerStatefulWidget {
   final String name;
   final double rating;
   final String description;
   final String budget;
   final VoidCallback onClose;
+  final String requestId;
+  final String role;
+  final String userStatus;
+  final bool actionCompleted;
+  final Function(String) onActionCompleted;
 
   const VendorDetailCard({
     super.key,
@@ -14,7 +23,62 @@ class VendorDetailCard extends StatelessWidget {
     required this.description,
     required this.budget,
     required this.onClose,
+    required this.requestId,
+    required this.role,
+    required this.userStatus,
+    required this.actionCompleted,
+    required this.onActionCompleted,
   });
+
+  @override
+  ConsumerState<VendorDetailCard> createState() => _VendorDetailCardState();
+}
+
+class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
+  bool _loading = false;
+
+  Future<void> _handleAction(bool accept) async {
+    setState(() => _loading = true);
+
+    try {
+      final userId = ref.read(userIdProvider);
+
+      final response = await http.post(
+        Uri.parse("https://achin-se-9kiip.ondigitalocean.app/user/acceptoffer"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "requestId": widget.requestId,
+          "userId": userId,
+          "role": widget.role.toLowerCase(),
+          "accept": accept,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              accept
+                  ? "Offer accepted successfully!"
+                  : "Offer rejected successfully!",
+            ),
+          ),
+        );
+        widget.onActionCompleted(widget.requestId);
+      } else {
+        final data = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? "Action failed")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +106,7 @@ class VendorDetailCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row with avatar + name + actions
+            // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -57,7 +121,7 @@ class VendorDetailCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        widget.name,
                         style: TextStyle(
                           fontSize: size.width * 0.05,
                           fontWeight: FontWeight.w600,
@@ -66,11 +130,14 @@ class VendorDetailCard extends StatelessWidget {
                       SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.star,
-                              color: Colors.amber, size: size.width * 0.04),
+                          Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                            size: size.width * 0.04,
+                          ),
                           SizedBox(width: 4),
                           Text(
-                            rating.toStringAsFixed(1),
+                            widget.rating.toStringAsFixed(1),
                             style: TextStyle(
                               fontSize: size.width * 0.035,
                               color: Colors.grey[700],
@@ -83,68 +150,70 @@ class VendorDetailCard extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: onClose,
+                  onPressed: widget.onClose,
                 ),
               ],
             ),
-
             SizedBox(height: size.height * 0.015),
             Text(
-              "Budget: $budget",
+              "Budget: ${widget.budget}",
               style: TextStyle(
                 fontSize: size.width * 0.04,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey[800],
               ),
             ),
-
             SizedBox(height: size.height * 0.015),
             Text(
-              description,
+              widget.description,
               style: TextStyle(
                 fontSize: size.width * 0.037,
                 color: Colors.grey[700],
                 height: 1.5,
               ),
             ),
-
             SizedBox(height: size.height * 0.02),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[300],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+
+            if (!widget.actionCompleted &&
+                widget.userStatus.toLowerCase() == "pending")
+              _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _handleAction(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[300],
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Rejected",
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _handleAction(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF4B7D),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Deal",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      "Rejected",
-                      style: TextStyle(color: Colors.black),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF4B7D),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      "Deal",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),

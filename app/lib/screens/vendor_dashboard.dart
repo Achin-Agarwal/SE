@@ -246,118 +246,138 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _requests.isEmpty
-          ? const Center(child: Text("No pending requests"))
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _requests.length,
-              itemBuilder: (context, index) {
-                final req = _requests[index];
-                final userStatus = req['userStatus']?.toString() ?? "Pending";
-                final vendorStatus =
-                    req['vendorStatus']?.toString() ?? "Pending";
-                final user = (req['user'] is Map)
-                    ? req['user'] as Map<String, dynamic>
-                    : {};
-                final status = req['vendorStatus']?.toString() ?? "Pending";
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  elevation: 6,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+      body: RefreshIndicator(
+        onRefresh: fetchRequests,
+        color: const Color(0xFFE91E63),
+        backgroundColor: Colors.white,
+        child: _isLoading
+            ? ListView(
+                children: const [
+                  SizedBox(
+                    height: 400,
+                    child: Center(child: CircularProgressIndicator()),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user['name']?.toString() ?? "Unknown User",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF333333),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text("📧 ${user['email'] ?? '—'}"),
-                        Text("📞 ${user['phone'] ?? '—'}"),
-                        const Divider(height: 16),
-                        Text("🎭 Role: ${req['role'] ?? '—'}"),
-                        Text("📍 Location: ${req['location'] ?? '—'}"),
-                        Text("📅 Date: ${_formatDate(req['eventDate'])}"),
-                        Text("📝 Description: ${req['description'] ?? '—'}"),
-                        const SizedBox(height: 8),
+                ],
+              )
+            : _requests.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(
+                    height: 400,
+                    child: Center(child: Text("No pending requests")),
+                  ),
+                ],
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: _requests.length,
+                itemBuilder: (context, index) {
+                  final req = _requests[index];
+                  final userStatus = req['userStatus']?.toString() ?? "Pending";
+                  final vendorStatus =
+                      req['vendorStatus']?.toString() ?? "Pending";
+                  final user = (req['user'] is Map)
+                      ? req['user'] as Map<String, dynamic>
+                      : {};
+                  final status = req['vendorStatus']?.toString() ?? "Pending";
 
-                        if (status == 'Accepted')
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("💰 Budget: ₹${req['budget'] ?? '—'}"),
-                              Text(
-                                "📋 Details: ${req['additionalDetails'] ?? '—'}",
-                              ),
-                            ],
-                          ),
-
-                        const SizedBox(height: 12),
-
-                        if (userStatus == 'Pending')
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.check),
-                                onPressed: () => respondToRequest(
-                                  req['_id']?.toString() ?? "",
-                                  "accept",
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF43A047),
-                                ),
-                                label: const Text("Accept"),
-                              ),
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.close),
-                                onPressed: () => respondToRequest(
-                                  req['_id']?.toString() ?? "",
-                                  "reject",
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE53935),
-                                ),
-                                label: const Text("Reject"),
-                              ),
-                            ],
-                          )
-                        else
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: userStatus == 'Accepted'
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              "User has ${userStatus.toLowerCase()} your offer",
-                              style: TextStyle(
-                                color: userStatus == 'Accepted'
-                                    ? Colors.green
-                                    : Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    elevation: 6,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                );
-              },
-            ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user['name']?.toString() ?? "Unknown User",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF333333),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text("📧 ${user['email'] ?? '—'}"),
+                          Text("📞 ${user['phone'] ?? '—'}"),
+                          const Divider(height: 16),
+                          Text("🎭 Role: ${req['role'] ?? '—'}"),
+                          Text("📍 Location: ${req['location'] ?? '—'}"),
+                          Text("📅 Date: ${_formatDate(req['eventDate'])}"),
+                          Text("📝 Description: ${req['description'] ?? '—'}"),
+                          const SizedBox(height: 8),
+
+                          if (status == 'Accepted')
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("💰 Budget: ₹${req['budget'] ?? '—'}"),
+                                Text(
+                                  "📋 Details: ${req['additionalDetails'] ?? '—'}",
+                                ),
+                              ],
+                            ),
+
+                          const SizedBox(height: 12),
+
+                          if (userStatus == 'Pending')
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.check),
+                                  onPressed: () => respondToRequest(
+                                    req['_id']?.toString() ?? "",
+                                    "accept",
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF43A047),
+                                  ),
+                                  label: const Text("Accept"),
+                                ),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () => respondToRequest(
+                                    req['_id']?.toString() ?? "",
+                                    "reject",
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFE53935),
+                                  ),
+                                  label: const Text("Reject"),
+                                ),
+                              ],
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: userStatus == 'Accepted'
+                                    ? Colors.green.withOpacity(0.1)
+                                    : Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                "User has ${userStatus.toLowerCase()} your offer",
+                                style: TextStyle(
+                                  color: userStatus == 'Accepted'
+                                      ? Colors.green
+                                      : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

@@ -8,7 +8,6 @@ import 'package:app/providers/userid.dart';
 
 class RoleList extends ConsumerStatefulWidget {
   const RoleList({super.key, required this.selectedRole});
-
   final String? selectedRole;
 
   @override
@@ -19,7 +18,8 @@ class _RoleListState extends ConsumerState<RoleList> {
   List<Map<String, dynamic>> roles = [];
   Map<String, dynamic>? selectedVendor;
   bool isLoading = true;
-  bool showDetail = false;
+
+  Set<String> completedRequests = {};
 
   @override
   void initState() {
@@ -28,8 +28,9 @@ class _RoleListState extends ConsumerState<RoleList> {
   }
 
   Future<void> fetchUserRequests() async {
-    final userId = ref.read(userIdProvider);
+    setState(() => isLoading = true);
 
+    final userId = ref.read(userIdProvider);
     final url = Uri.parse(
       "https://achin-se-9kiip.ondigitalocean.app/user/$userId/requests",
     );
@@ -42,35 +43,35 @@ class _RoleListState extends ConsumerState<RoleList> {
 
         setState(() {
           roles = data
-              .where(
-                (req) =>
-                    req["role"].toString().toLowerCase() ==
-                    widget.selectedRole?.toLowerCase(),
-              )
+              .where((req) =>
+                  req["role"].toString().toLowerCase() ==
+                  widget.selectedRole?.toLowerCase())
               .map((req) {
-                final vendor = req["vendor"];
-                final vendorStatus = req["vendorStatus"];
-                final status = vendorStatus == "Pending"
+            final vendor = req["vendor"];
+            final vendorStatus = req["vendorStatus"];
+            final status =
+                vendorStatus?.toString().toLowerCase() == "pending"
                     ? "Requested"
                     : "Accepted";
-                print(vendor);
 
-                return {
-                  'id': vendor["id"],
-                  'name': vendor["name"],
-                  'description': vendor["description"],
-                  'rating': (vendor["rating"] ?? 0).toDouble(),
-                  'status': status,
-                  'statusColor': status == "Accepted"
-                      ? const Color(0xFFFF4B7D)
-                      : Colors.grey,
-                  'budget': vendor["budget"] ?? "N/A",
-                  'email': vendor["email"],
-                  'phone': vendor["phone"],
-                };
-              })
-              .toList();
+            return {
+              'requestId': req["_id"],
+              'name': vendor["name"],
+              'description': req["additionalDetails"] ?? "No description",
+              'rating': (vendor["rating"] ?? 0).toDouble(),
+              'status': status,
+              'statusColor': status == "Accepted"
+                  ? const Color(0xFFFF4B7D)
+                  : Colors.grey,
+              'budget': req["budget"]?.toString() ?? "N/A",
+              'email': vendor["email"],
+              'phone': vendor["phone"],
+              'role': vendor["role"],
+              'userStatus': req["userStatus"]?.toString() ?? "pending",
+            };
+          }).toList();
 
+          // Sort Accepted first
           roles.sort((a, b) {
             if (a['status'] == b['status']) return 0;
             if (a['status'] == 'Accepted') return -1;
@@ -88,13 +89,17 @@ class _RoleListState extends ConsumerState<RoleList> {
     }
   }
 
+  void markRequestCompleted(String requestId) {
+    setState(() {
+      completedRequests.add(requestId);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (isLoading) return const Center(child: CircularProgressIndicator());
 
     if (roles.isEmpty) {
       return Center(
@@ -113,50 +118,51 @@ class _RoleListState extends ConsumerState<RoleList> {
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
-      child: showDetail && selectedVendor != null
+      child: selectedVendor != null
           ? VendorDetailCard(
-              key: const ValueKey("detailView"),
+              key: ValueKey(selectedVendor!['requestId']),
               name: selectedVendor!['name'],
               rating: selectedVendor!['rating'],
               description: selectedVendor!['description'],
-              budget: selectedVendor!['budget'],
-              onClose: () {
-                setState(() {
-                  showDetail = false;
-                  selectedVendor = null;
-                });
-              },
+              budget: selectedVendor!['budget']?.toString() ?? 'N/A',
+              requestId: selectedVendor!['requestId'],
+              role: selectedVendor!['role'],
+              userStatus: selectedVendor!['userStatus'],
+              actionCompleted: completedRequests
+                  .contains(selectedVendor!['requestId']),
+              onClose: () => setState(() => selectedVendor = null),
+              onActionCompleted: markRequestCompleted,
             )
-          : Padding(
-              key: const ValueKey("listView"),
-              padding: EdgeInsets.symmetric(
-                vertical: size.height * 0.01,
-                horizontal: size.width * 0.05,
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: roles.length,
-                itemBuilder: (context, index) {
-                  final role = roles[index];
-                  return GestureDetector(
-                    onTap: () {
-                      if (role['status'] == 'Accepted') {
-                        setState(() {
-                          selectedVendor = role;
-                          showDetail = true;
-                        });
-                      }
-                    },
-                    child: RoleItemCard(
-                      name: role['name'] as String,
-                      description: role['description'] as String,
-                      rating: role['rating'] as double,
-                      status: role['status'] as String,
-                      statusColor: role['statusColor'] as Color,
-                    ),
-                  );
-                },
+          : SizedBox(
+              height: size.height,
+              child: RefreshIndicator(
+                color: const Color(0xFFFF4B7D),
+                onRefresh: fetchUserRequests,
+                child: ListView.builder(
+                  padding: EdgeInsets.symmetric(
+                    vertical: size.height * 0.01,
+                    horizontal: size.width * 0.05,
+                  ),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: roles.length,
+                  itemBuilder: (context, index) {
+                    final role = roles[index];
+                    return GestureDetector(
+                      onTap: () {
+                        if (role['status'] == 'Accepted') {
+                          setState(() => selectedVendor = role);
+                        }
+                      },
+                      child: RoleItemCard(
+                        name: role['name'] as String,
+                        description: role['description'] as String,
+                        rating: role['rating'] as double,
+                        status: role['status'] as String,
+                        statusColor: role['statusColor'] as Color,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
     );

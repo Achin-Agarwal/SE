@@ -191,58 +191,89 @@ router.post(
   "/acceptoffer",
   safeHandler(async (req, res) => {
     try {
-      const { requestId, userId, role } = req.body;
+      const { requestId, userId, role, accept } = req.body;
 
-      if (!requestId || !userId || !role) {
-        return res.error(400, "Missing required fields", "MISSING_FIELDS");
+      if (!requestId || !userId || !role || typeof accept !== "boolean") {
+        return res.error(400, "Missing or invalid fields", "MISSING_FIELDS");
       }
 
-      // Step 1: Accept the chosen offer
-      const acceptedReq = await VendorRequest.findByIdAndUpdate(
-        requestId,
-        { userStatus: "Accepted" },
-        { new: true }
-      );
+      const requestObjectId = new ObjectId(requestId);
+      const roleLower = role.toLowerCase();
 
-      if (!acceptedReq) {
-        return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
+      if (accept) {
+        // ✅ User accepts the offer
+        const acceptedReq = await VendorRequest.findByIdAndUpdate(
+          requestObjectId,
+          { userStatus: "Accepted" },
+          { new: true }
+        );
+
+        if (!acceptedReq) {
+          return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
+        }
+
+        // 🔹 Find all other pending requests for same user & role
+        const otherRequests = await VendorRequest.find({
+          user: userId,
+          role: { $regex: new RegExp(`^${roleLower}$`, "i") }, // case-insensitive match
+          userStatus: "pending", // only pending ones
+          _id: { $ne: requestObjectId },
+        });
+
+        // 🔹 Remove references from User & Vendor
+        await Promise.all(
+          otherRequests.map(async (reqDoc) => {
+            await Promise.all([
+              User.findByIdAndUpdate(reqDoc.user, {
+                $pull: { sentRequests: reqDoc._id },
+              }),
+              Vendor.findByIdAndUpdate(reqDoc.vendor, {
+                $pull: { receivedRequests: reqDoc._id },
+              }),
+            ]);
+          })
+        );
+
+        // 🔹 Delete other pending requests
+        const deleted = await VendorRequest.deleteMany({
+          user: userId,
+          role: { $regex: new RegExp(`^${roleLower}$`, "i") },
+          userStatus: "pending",
+          _id: { $ne: requestObjectId },
+        });
+
+        return res.success(200, "Offer accepted successfully", {
+          acceptedRequest: acceptedReq,
+          deletedRequestsCount: deleted.deletedCount,
+        });
+      } else {
+        // ❌ User rejects this offer
+        const reqToDelete = await VendorRequest.findById(requestObjectId);
+
+        if (!reqToDelete) {
+          return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
+        }
+
+        // 🔹 Remove references from User & Vendor
+        await Promise.all([
+          User.findByIdAndUpdate(reqToDelete.user, {
+            $pull: { sentRequests: reqToDelete._id },
+          }),
+          Vendor.findByIdAndUpdate(reqToDelete.vendor, {
+            $pull: { receivedRequests: reqToDelete._id },
+          }),
+        ]);
+
+        // 🔹 Delete the request itself
+        await VendorRequest.findByIdAndDelete(requestObjectId);
+
+        return res.success(200, "Offer rejected and deleted successfully", {
+          deletedRequest: requestId,
+        });
       }
-
-      // Step 2: Find other requests (same user & role) to remove
-      const otherRequests = await VendorRequest.find({
-        user: userId,
-        role,
-        _id: { $ne: requestId },
-      });
-
-      // Step 3: Remove their references from users and vendors
-      await Promise.all(
-        otherRequests.map(async (reqDoc) => {
-          await Promise.all([
-            User.findByIdAndUpdate(reqDoc.user, {
-              $pull: { sentRequests: reqDoc._id },
-            }),
-            Vendor.findByIdAndUpdate(reqDoc.vendor, {
-              $pull: { receivedRequests: reqDoc._id },
-            }),
-          ]);
-        })
-      );
-
-      // Step 4: Delete those requests from VendorRequest collection
-      await VendorRequest.deleteMany({
-        user: userId,
-        role,
-        _id: { $ne: requestId },
-      });
-
-      return res.success(200, "Offer accepted successfully", {
-        acceptedRequest: acceptedReq,
-        deletedRequestsCount: otherRequests.length,
-      });
     } catch (err) {
       console.error("Accept offer error:", err);
-      return res.error(500, "Failed to accept offer", "ACCEPT_OFFER_ERROR", {
+      return res.error(500, "Failed to process offer", "ACCEPT_OFFER_ERROR", {
         details: err.message,
       });
     }
