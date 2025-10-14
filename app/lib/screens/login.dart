@@ -1,131 +1,224 @@
 import 'dart:convert';
-import 'dart:developer';
-
-import 'package:app/providers/url.dart';
-import 'package:app/screens/organizer_dashboard.dart';
-import 'package:app/providers/username.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
-class Login extends ConsumerWidget {
-  const Login({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    TextEditingController username = TextEditingController();
-    TextEditingController password = TextEditingController();
+  State<LoginScreen> createState() => _LoginScreenState();
+}
 
-    final url = ref.read(urlProvider);
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  String? _selectedRole;
+  bool _isLoading = false;
 
-    Future<void> loginAdmin() async {
-      if (username.text.trim().isEmpty || password.text.trim().isEmpty) {
-        const snackbar = SnackBar(
-          content: Text('Both the fields are required'),
+  final List<String> roles = ['Organizer', 'Vendor', 'Performer'];
+
+  Future<void> login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    const String apiUrl = "https://your-api-url.com/login";
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "email": _emailController.text.trim(),
+          "password": _passwordController.text,
+          "role": _selectedRole,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Login successful! Welcome ${data['user']['name']}")),
         );
-        ScaffoldMessenger.of(context).showSnackBar(snackbar);
-        return;
-      }
-
-      final body = {
-        "username": username.text.trim(),
-        "password": password.text.trim(),
-      };
-
-      try {
-        final response = await http.post(
-          Uri.parse("$url/admin/login"),
-          body: jsonEncode(body),
-          headers: {'Content-Type': 'application/json'},
+        // Navigate to dashboard or next screen
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? "Login failed")),
         );
-
-        final jsonRes = await jsonDecode(response.body);
-        if (!context.mounted) return;
-        if (response.statusCode == 200) {
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString('token', jsonRes['data']['token']);
-          await prefs.setString('username', jsonRes['data']['username']);
-
-          ref.read(usernameProvider.notifier).state =
-              jsonRes['data']['username'];
-          if (!context.mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => OrganizerDashboard()),
-          );
-        } else {
-          const errorBar = SnackBar(content: Text('Error logging in'));
-          ScaffoldMessenger.of(context).showSnackBar(errorBar);
-        }
-      } catch (e) {
-        log(e.toString());
-        const errorBar = SnackBar(content: Text('Error logging in'));
-        ScaffoldMessenger.of(context).showSnackBar(errorBar);
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Scaffold(
-      body: SizedBox(
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height,
-        child: Column(
-          children: [
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.2,
-              child: Center(
-                child: Text(
-                  'Shop',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      backgroundColor: const Color(0xFFF9F6F7),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 60),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Logo
+              Column(
+                children: [
+                  Image.asset(
+                    'assets/logo.png', // replace with your asset
+                    height: 80,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'EVENT ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A237E),
+                            fontSize: 22,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'FLOW',
+                          style: TextStyle(
+                            color: Color(0xFFE57373),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // Email
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email Address',
+                  hintText: 'you@example.com',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? "Enter your email" : null,
+              ),
+              const SizedBox(height: 20),
+
+              // Role Dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                items: roles
+                    .map((r) =>
+                        DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                decoration: InputDecoration(
+                  labelText: 'Role',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (value) => setState(() => _selectedRole = value),
+                validator: (val) =>
+                    val == null ? "Please select a role" : null,
+              ),
+              const SizedBox(height: 20),
+
+              // Password
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? "Enter your password" : null,
+              ),
+              const SizedBox(height: 10),
+
+              // Forgot password
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    "Forgot Password?",
+                    style: TextStyle(color: Color(0xFFE57373)),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.6,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  spacing: 10,
-                  children: [
-                    TextField(
-                      controller: username,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.black, width: 2),
+              const SizedBox(height: 10),
+
+              // Login button
+              SizedBox(
+                width: size.width,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF5A8C),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(
+                          color: Colors.white,
+                        )
+                      : const Text(
+                          "Login",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        hintText: 'johndoe',
-                        hintStyle: TextStyle(fontSize: 13),
-                        labelStyle: TextStyle(fontSize: 13),
-                        label: Text('Username'),
-                      ),
-                    ),
-                    TextField(
-                      controller: password,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.black, width: 2),
-                        ),
-                        hintText: '12345678',
-                        label: Text('password'),
-                        hintStyle: TextStyle(fontSize: 13),
-                        labelStyle: TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => loginAdmin(),
-                      child: Text('Login'),
-                    ),
-                  ],
                 ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-          ],
+              const SizedBox(height: 20),
+
+              // Sign Up
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Don’t have an account? "),
+                  GestureDetector(
+                    onTap: () {},
+                    child: const Text(
+                      "Sign Up",
+                      style: TextStyle(
+                        color: Color(0xFFE57373),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
