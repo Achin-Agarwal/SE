@@ -9,6 +9,7 @@ import { generateToken } from "../utils/jwtFunct.js";
 import User from "../models/User.js";
 import Vendor from "../models/Vendor.js";
 import VendorRequest from "../models/VendorRequest.js";
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 router.post(
@@ -187,6 +188,7 @@ router.get(
 );
 
 // User accepts one vendor offer (and delete others)
+
 router.post(
   "/acceptoffer",
   safeHandler(async (req, res) => {

@@ -43,33 +43,36 @@ class _RoleListState extends ConsumerState<RoleList> {
 
         setState(() {
           roles = data
-              .where((req) =>
-                  req["role"].toString().toLowerCase() ==
-                  widget.selectedRole?.toLowerCase())
+              .where(
+                (req) =>
+                    req["role"].toString().toLowerCase() ==
+                    widget.selectedRole?.toLowerCase(),
+              )
               .map((req) {
-            final vendor = req["vendor"];
-            final vendorStatus = req["vendorStatus"];
-            final status =
-                vendorStatus?.toString().toLowerCase() == "pending"
+                final vendor = req["vendor"];
+                final vendorStatus = req["vendorStatus"];
+                final status =
+                    vendorStatus?.toString().toLowerCase() == "pending"
                     ? "Requested"
                     : "Accepted";
 
-            return {
-              'requestId': req["_id"],
-              'name': vendor["name"],
-              'description': req["additionalDetails"] ?? "No description",
-              'rating': (vendor["rating"] ?? 0).toDouble(),
-              'status': status,
-              'statusColor': status == "Accepted"
-                  ? const Color(0xFFFF4B7D)
-                  : Colors.grey,
-              'budget': req["budget"]?.toString() ?? "N/A",
-              'email': vendor["email"],
-              'phone': vendor["phone"],
-              'role': vendor["role"],
-              'userStatus': req["userStatus"]?.toString() ?? "pending",
-            };
-          }).toList();
+                return {
+                  'requestId': req["_id"],
+                  'name': vendor["name"],
+                  'description': req["additionalDetails"] ?? "No description",
+                  'rating': (vendor["rating"] ?? 0).toDouble(),
+                  'status': status,
+                  'statusColor': status == "Accepted"
+                      ? const Color(0xFFFF4B7D)
+                      : Colors.grey,
+                  'budget': req["budget"]?.toString() ?? "N/A",
+                  'email': vendor["email"],
+                  'phone': vendor["phone"],
+                  'role': vendor["role"],
+                  'userStatus': req["userStatus"]?.toString() ?? "pending",
+                };
+              })
+              .toList();
 
           // Sort Accepted first
           roles.sort((a, b) {
@@ -128,8 +131,9 @@ class _RoleListState extends ConsumerState<RoleList> {
               requestId: selectedVendor!['requestId'],
               role: selectedVendor!['role'],
               userStatus: selectedVendor!['userStatus'],
-              actionCompleted: completedRequests
-                  .contains(selectedVendor!['requestId']),
+              actionCompleted: completedRequests.contains(
+                selectedVendor!['requestId'],
+              ),
               onClose: () => setState(() => selectedVendor = null),
               onActionCompleted: markRequestCompleted,
             )
