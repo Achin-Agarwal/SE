@@ -187,8 +187,6 @@ router.get(
   })
 );
 
-// User accepts one vendor offer (and delete others)
-
 router.post(
   "/acceptoffer",
   safeHandler(async (req, res) => {
@@ -203,7 +201,6 @@ router.post(
       const roleLower = role.toLowerCase();
 
       if (accept) {
-        // ✅ User accepts the offer
         const acceptedReq = await VendorRequest.findByIdAndUpdate(
           requestObjectId,
           { userStatus: "Accepted" },
@@ -214,15 +211,12 @@ router.post(
           return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
         }
 
-        // 🔹 Find all other pending requests for same user & role
         const otherRequests = await VendorRequest.find({
           user: userId,
-          role: { $regex: new RegExp(`^${roleLower}$`, "i") }, // case-insensitive match
-          userStatus: "pending", // only pending ones
+          role: { $regex: new RegExp(`^${roleLower}$`, "i") },
           _id: { $ne: requestObjectId },
         });
 
-        // 🔹 Remove references from User & Vendor
         await Promise.all(
           otherRequests.map(async (reqDoc) => {
             await Promise.all([
@@ -236,11 +230,9 @@ router.post(
           })
         );
 
-        // 🔹 Delete other pending requests
         const deleted = await VendorRequest.deleteMany({
           user: userId,
           role: { $regex: new RegExp(`^${roleLower}$`, "i") },
-          userStatus: "pending",
           _id: { $ne: requestObjectId },
         });
 
@@ -249,14 +241,12 @@ router.post(
           deletedRequestsCount: deleted.deletedCount,
         });
       } else {
-        // ❌ User rejects this offer
         const reqToDelete = await VendorRequest.findById(requestObjectId);
 
         if (!reqToDelete) {
           return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
         }
 
-        // 🔹 Remove references from User & Vendor
         await Promise.all([
           User.findByIdAndUpdate(reqToDelete.user, {
             $pull: { sentRequests: reqToDelete._id },
@@ -266,7 +256,6 @@ router.post(
           }),
         ]);
 
-        // 🔹 Delete the request itself
         await VendorRequest.findByIdAndDelete(requestObjectId);
 
         return res.success(200, "Offer rejected and deleted successfully", {
