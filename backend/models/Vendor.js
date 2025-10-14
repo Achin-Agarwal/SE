@@ -1,0 +1,45 @@
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+
+const vendorSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    phone: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+
+    role: {
+      type: String,
+      required: true,
+      enum: [
+        "Photographer",
+        "Caterer",
+        "Decorator",
+        "Musician",
+        "DJ",
+        "Performer",
+      ],
+    },
+
+    description: { type: String, required: true },
+    location: { type: String, required: true },
+    rating: { type: Number, default: 0 },
+
+    receivedRequests: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" },
+    ],
+  },
+  { timestamps: true }
+);
+
+vendorSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+vendorSchema.methods.comparePassword = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
+
+export default mongoose.model("Vendor", vendorSchema);

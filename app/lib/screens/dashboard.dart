@@ -1,0 +1,94 @@
+import 'package:app/providers/navigation_provider.dart';
+import 'package:app/screens/organizer/cart.dart';
+import 'package:app/screens/organizer/bookings.dart';
+import 'package:app/screens/organizer/profile.dart';
+import 'package:app/screens/organizer/search_screen.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class Dashboard extends ConsumerWidget {
+  const Dashboard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(navIndexProvider);
+    final size = MediaQuery.of(context).size;
+
+    final screens = [
+      const SearchScreen(),
+      const Cart(),
+      const Bookings(),
+      const Profile(),
+    ];
+
+    return Scaffold(
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              vertical: size.height * 0.01,
+              horizontal: size.width * 0.04,
+            ),
+            margin: EdgeInsets.only(bottom: size.height * 0.01),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Colors.pink[50],
+                  child: Text(
+                    "G",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: size.width * 0.06,
+                    ),
+                  ),
+                ),
+                SizedBox(width: size.width * 0.05),
+                Text(
+                  "Guest",
+                  style: TextStyle(
+                    fontSize: size.width * 0.055,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: screens[currentIndex]),
+        ],
+      ),
+      bottomNavigationBar: CurvedNavigationBar(
+        index: currentIndex,
+        height: size.height * 0.06,
+        color: Colors.white,
+        buttonBackgroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        animationDuration: const Duration(milliseconds: 300),
+        items: <Widget>[
+          Icon(Icons.search, size: size.height * 0.04, color: Colors.pink),
+          Icon(
+            Icons.shopping_cart,
+            size: size.height * 0.04,
+            color: Colors.pink,
+          ),
+          Icon(Icons.book, size: size.height * 0.04, color: Colors.pink),
+          Icon(Icons.person, size: size.height * 0.04, color: Colors.pink),
+        ],
+        onTap: (index) => ref.read(navIndexProvider.notifier).state = index,
+      ),
+    );
+  }
+}
