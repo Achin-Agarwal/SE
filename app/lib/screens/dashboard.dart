@@ -1,4 +1,5 @@
 import 'package:app/providers/navigation_provider.dart';
+import 'package:app/screens/login.dart';
 import 'package:app/screens/organizer/cart.dart';
 import 'package:app/screens/organizer/bookings.dart';
 import 'package:app/screens/organizer/profile.dart';
@@ -6,6 +7,9 @@ import 'package:app/screens/organizer/search_screen.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app/providers/username.dart';
 
 class Dashboard extends ConsumerWidget {
   const Dashboard({super.key});
@@ -21,6 +25,21 @@ class Dashboard extends ConsumerWidget {
       const Bookings(),
       const Profile(),
     ];
+
+    Future<void> _logout(BuildContext context) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token'); // 🧹 Delete the auth token
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+
+      // Optional: Navigate back to login page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    }
 
     return Scaffold(
       body: Column(
@@ -44,15 +63,18 @@ class Dashboard extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.pink[50],
-                  child: Text(
-                    "G",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: size.width * 0.06,
+                GestureDetector(
+                  onTap: () => _logout(context),
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.pink[50],
+                    child: Text(
+                      "G",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: size.width * 0.06,
+                      ),
                     ),
                   ),
                 ),

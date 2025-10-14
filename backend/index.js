@@ -21,15 +21,7 @@ app.use((req, res, next) => {
     console.log(req.url, req.method);
     next();
 })
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      callback(null, origin || "*");
-    },
-    credentials: true,
-    methods: ["GET", "POST"],
-  })
-);
+app.use();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

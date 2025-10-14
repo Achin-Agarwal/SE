@@ -1,57 +1,89 @@
 import 'dart:convert';
+import 'package:app/screens/dashboard.dart';
+import 'package:app/screens/vendor_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/providers/username.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String? _selectedRole;
   bool _isLoading = false;
 
-  final List<String> roles = ['Organizer', 'Vendor', 'Performer'];
+  final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator'];
 
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    const String apiUrl = "https://se-hxdx.onrender.com/login";
+    const String apiUrl = "https://se-hxdx.onrender.com/vendor/login";
 
     try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "email": _emailController.text.trim(),
-          "password": _passwordController.text,
-          "role": _selectedRole,
-        }),
-      );
+      // final response = await http.post(
+      //   Uri.parse(apiUrl),
+      //   headers: {'Content-Type': 'application/json'},
+      //   body: jsonEncode({
+      //     "email": _emailController.text.trim(),
+      //     "password": _passwordController.text,
+      //     "role": _selectedRole,
+      //   }),
+      // );
 
-      final data = jsonDecode(response.body);
+      // final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login successful! Welcome ${data['user']['name']}")),
+      // if (response.statusCode == 200 && data['status'] == 'success') {
+      //   final user = data['data']['user'];
+      // final token = data['data']['token'];
+      final token =
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZWRlOWViZWZmOWM1ZjMyZTMwNmJhMCIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzYwNDQ1MzEzLCJleHAiOjE3NjEwNTAxMTN9.NLTCsqDhiqkHeRdxSnOjUX85CX8SZ46E88REpHQvm6g";
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+
+      // ref.read(usernameProvider.notifier).state = user['name'];
+      // ref.read(userIdProvider.notifier).state = user['id'];
+
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text("Login successful! Welcome ${user['name']}")),
+      // );
+
+      // TODO: Navigate to your dashboard or main screen
+      // Navigator.pushReplacementNamed(context, '/dashboard');
+      // } else {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(content: Text(data['message'] ?? "Login failed")),
+      //   );
+      // }
+      print("Login successful! Welcome ");
+      if (_selectedRole == 'User') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => SafeArea(child: Dashboard())),
         );
-        // Navigate to dashboard or next screen
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? "Login failed")),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SafeArea(child: VendorDashboard()),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -69,13 +101,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Logo
               Column(
                 children: [
-                  Image.asset(
-                    'assets/logo.png', // replace with your asset
-                    height: 80,
-                  ),
+                  Image.asset('assets/logo.png', height: 80),
                   const SizedBox(height: 10),
                   const Text.rich(
                     TextSpan(
@@ -125,8 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 items: roles
-                    .map((r) =>
-                        DropdownMenuItem(value: r, child: Text(r)))
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
                     .toList(),
                 decoration: InputDecoration(
                   labelText: 'Role',
@@ -137,8 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 onChanged: (value) => setState(() => _selectedRole = value),
-                validator: (val) =>
-                    val == null ? "Please select a role" : null,
+                validator: (val) => val == null ? "Please select a role" : null,
               ),
               const SizedBox(height: 20),
 
@@ -185,9 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                           "Login",
                           style: TextStyle(

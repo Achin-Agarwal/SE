@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
+  final token = prefs.getString('auth_token');
   runApp(ProviderScope(child: Shop(token: token)));
 }
 
@@ -25,7 +25,7 @@ class Shop extends StatelessWidget {
         primaryColor: Colors.white,
         useMaterial3: true,
       ),
-      home: SafeArea(child: (token != null) ? Login() : Dashboard()),
+      home: SafeArea(child: (token == null) ? LoginScreen() : Dashboard()),
     );
   }
 }
