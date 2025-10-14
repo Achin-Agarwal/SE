@@ -53,8 +53,10 @@ class _RoleListState extends ConsumerState<RoleList> {
                 final status = vendorStatus == "Pending"
                     ? "Requested"
                     : "Accepted";
+                print(vendor);
 
                 return {
+                  'id': vendor["id"],
                   'name': vendor["name"],
                   'description': vendor["description"],
                   'rating': (vendor["rating"] ?? 0).toDouble(),

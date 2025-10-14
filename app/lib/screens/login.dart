@@ -44,23 +44,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               : null,
         }),
       );
-      print("Trying to login...");
 
       final data = jsonDecode(response.body);
+      print("Response data: $data");
 
       if (response.statusCode == 200 && data['status'] == 'success') {
-        final user = data['data']['user'];
+        final user = data['data']['user'] ?? null;
+        final vendor = data['data']['vendor'] ?? null;
         final token = data['data']['token'];
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
 
-        ref.read(usernameProvider.notifier).state = user['name'];
-        ref.read(userIdProvider.notifier).state = user['id'];
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login successful! Welcome ${user['name']}")),
-        );
+        if (_selectedRole == 'User') {
+          print("Setting user data");
+          ref.read(usernameProvider.notifier).state = user['name'];
+          ref.read(userIdProvider.notifier).state = user['id'];
+        } else {
+          print("Setting vendor data");
+          ref.read(usernameProvider.notifier).state = vendor['name'];
+          ref.read(userIdProvider.notifier).state = vendor['id'];
+        }
+        print(token);
 
         print("Login successful! Welcome ");
         if (_selectedRole == 'User') {

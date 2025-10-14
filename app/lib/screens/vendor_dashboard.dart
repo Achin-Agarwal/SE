@@ -1,48 +1,50 @@
 import 'dart:convert';
-import 'package:app/screens/login.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/screens/login.dart';
 import 'package:http/http.dart' as http;
+import 'package:app/providers/userid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class VendorDashboard extends StatefulWidget {
+class VendorDashboard extends ConsumerStatefulWidget {
   const VendorDashboard({super.key});
 
   @override
-  State<VendorDashboard> createState() => _VendorDashboardState();
+  ConsumerState<VendorDashboard> createState() => _VendorDashboardState();
 }
 
-class _VendorDashboardState extends State<VendorDashboard> {
+class _VendorDashboardState extends ConsumerState<VendorDashboard> {
   bool _isLoading = false;
-  List<dynamic> _requests = [];
+  List<Map<String, dynamic>> _requests = [];
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _detailsController = TextEditingController();
-
-  // 🧠 Fetch vendorId (stored after login)
-  Future<String?> _getVendorId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('vendor_id');
-  }
 
   // 🧠 Fetch requests from API
   Future<void> fetchRequests() async {
     setState(() => _isLoading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final vendorId = ref.read(userIdProvider);
+      SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      final vendorId = await _getVendorId();
 
-      if (vendorId == null) {
+      if (vendorId == null || token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Vendor ID not found. Please log in again."),
+            content: Text("Session expired. Please log in again."),
           ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
         return;
       }
 
       final response = await http.get(
-        Uri.parse('https://se-hxdx.onrender.com/vendor/$vendorId/requests'),
+        Uri.parse(
+          'https://achin-se-9kiip.ondigitalocean.app/vendor/$vendorId/requests',
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -50,8 +52,18 @@ class _VendorDashboardState extends State<VendorDashboard> {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() => _requests = data['data'] ?? []);
+        final decoded = jsonDecode(response.body);
+
+        // ✅ API returns a list directly
+        if (decoded is List) {
+          setState(() {
+            _requests = decoded
+                .whereType<Map<String, dynamic>>() // ensure elements are maps
+                .toList();
+          });
+        } else {
+          setState(() => _requests = []);
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -68,16 +80,26 @@ class _VendorDashboardState extends State<VendorDashboard> {
     }
   }
 
-  // ✅ Accept or Reject request
+  // ✅ Accept / Reject request
   Future<void> respondToRequest(String requestId, String action) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Missing authentication token.")),
+        );
+        return;
+      }
 
       String? budget;
       String? details;
 
+      // 🟩 If vendor is accepting, ask for details
       if (action == "accept") {
+        bool submitted = false;
+
         await showDialog(
           context: context,
           builder: (context) {
@@ -115,6 +137,13 @@ class _VendorDashboardState extends State<VendorDashboard> {
                     backgroundColor: const Color(0xFF43A047),
                   ),
                   onPressed: () {
+                    if (_budgetController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please enter a budget.")),
+                      );
+                      return;
+                    }
+                    submitted = true;
                     Navigator.pop(context);
                   },
                   child: const Text("Submit"),
@@ -124,38 +153,43 @@ class _VendorDashboardState extends State<VendorDashboard> {
           },
         );
 
+        if (!submitted) return; // if user cancelled
+
         budget = _budgetController.text.trim();
         details = _detailsController.text.trim();
 
-        if (budget.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Please enter a budget.")),
-          );
-          return;
-        }
+        _budgetController.clear();
+        _detailsController.clear();
       }
 
+      // 🟨 Build the payload
+      final payload = {
+        "requestId": requestId,
+        "action": action,
+        if (budget != null && budget.isNotEmpty)
+          "budget": int.tryParse(budget) ?? 0,
+        if (details != null && details.isNotEmpty) "additionalDetails": details,
+      };
+
+      // 🟧 Send API request
       final response = await http.post(
-        Uri.parse('https://se-hxdx.onrender.com/vendor/respond'),
+        Uri.parse('https://achin-se-9kiip.ondigitalocean.app/vendor/respond'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          "requestId": requestId,
-          "action": action,
-          if (budget != null && budget.isNotEmpty)
-            "budget": int.tryParse(budget) ?? 0,
-          if (details != null && details.isNotEmpty)
-            "additionalDetails": details,
-        }),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Request $action successfully!")),
+          SnackBar(
+            content: Text(
+              "Request ${action == 'accept' ? 'accepted' : 'rejected'} successfully!",
+            ),
+          ),
         );
-        fetchRequests(); // Refresh list
+        fetchRequests();
       } else {
         final data = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -169,8 +203,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
     }
   }
 
-  String _formatDate(String isoString) {
+  String _formatDate(String? isoString) {
     try {
+      if (isoString == null) return "—";
       final date = DateTime.parse(isoString);
       return "${date.day}-${date.month}-${date.year}";
     } catch (_) {
@@ -197,9 +232,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
+            onPressed: () {
+              ref.invalidate(userIdProvider);
+              SharedPreferences.getInstance().then((prefs) {
+                prefs.remove('auth_token');
+              });
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -218,8 +255,13 @@ class _VendorDashboardState extends State<VendorDashboard> {
               itemCount: _requests.length,
               itemBuilder: (context, index) {
                 final req = _requests[index];
-                final user = req['user'] ?? {};
-                final status = req['vendorStatus'];
+                final userStatus = req['userStatus']?.toString() ?? "Pending";
+                final vendorStatus =
+                    req['vendorStatus']?.toString() ?? "Pending";
+                final user = (req['user'] is Map)
+                    ? req['user'] as Map<String, dynamic>
+                    : {};
+                final status = req['vendorStatus']?.toString() ?? "Pending";
 
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 8),
@@ -233,7 +275,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user['name'] ?? "Unknown User",
+                          user['name']?.toString() ?? "Unknown User",
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -244,10 +286,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
                         Text("📧 ${user['email'] ?? '—'}"),
                         Text("📞 ${user['phone'] ?? '—'}"),
                         const Divider(height: 16),
-                        Text("🎭 Role: ${req['role']}"),
-                        Text("📍 Location: ${req['location']}"),
+                        Text("🎭 Role: ${req['role'] ?? '—'}"),
+                        Text("📍 Location: ${req['location'] ?? '—'}"),
                         Text("📅 Date: ${_formatDate(req['eventDate'])}"),
-                        Text("📝 Description: ${req['description']}"),
+                        Text("📝 Description: ${req['description'] ?? '—'}"),
                         const SizedBox(height: 8),
 
                         if (status == 'Accepted')
@@ -263,48 +305,50 @@ class _VendorDashboardState extends State<VendorDashboard> {
 
                         const SizedBox(height: 12),
 
-                        if (status == 'Pending')
+                        if (userStatus == 'Pending')
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               ElevatedButton.icon(
                                 icon: const Icon(Icons.check),
-                                onPressed: () =>
-                                    respondToRequest(req['_id'], "accept"),
+                                onPressed: () => respondToRequest(
+                                  req['_id']?.toString() ?? "",
+                                  "accept",
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF43A047),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
                                 ),
                                 label: const Text("Accept"),
                               ),
                               ElevatedButton.icon(
                                 icon: const Icon(Icons.close),
-                                onPressed: () =>
-                                    respondToRequest(req['_id'], "reject"),
+                                onPressed: () => respondToRequest(
+                                  req['_id']?.toString() ?? "",
+                                  "reject",
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFE53935),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
                                 ),
                                 label: const Text("Reject"),
                               ),
                             ],
-                          ),
-
-                        if (status == 'Accepted')
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () =>
-                                  respondToRequest(req['_id'], "accept"),
-                              child: const Text(
-                                "✏️ Edit Offer",
-                                style: TextStyle(color: Colors.blueAccent),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: userStatus == 'Accepted'
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              "User has ${userStatus.toLowerCase()} your offer",
+                              style: TextStyle(
+                                color: userStatus == 'Accepted'
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),

@@ -178,6 +178,9 @@ router.get(
   safeHandler(async (req, res) => {
     const requests = await VendorRequest.find({ user: req.params.userId })
       .populate("vendor", "name role rating description email phone")
+      .select(
+        "_id user vendor role location description eventDate vendorStatus userStatus createdAt updatedAt additionalDetails budget"
+      )
       .lean();
     res.json(requests);
   })
