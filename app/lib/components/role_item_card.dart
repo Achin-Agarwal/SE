@@ -61,8 +61,11 @@ class RoleItemCard extends StatelessWidget {
                     SizedBox(height: size.height * 0.005),
                     Row(
                       children: [
-                        Icon(Icons.star,
-                            color: Colors.amber, size: size.width * 0.04),
+                        Icon(
+                          Icons.star,
+                          color: Colors.amber,
+                          size: size.width * 0.04,
+                        ),
                         SizedBox(width: size.width * 0.01),
                         Text(
                           rating.toStringAsFixed(1),
@@ -97,15 +100,17 @@ class RoleItemCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: size.height * 0.012),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: size.width * 0.035,
-              color: Colors.grey[700],
-              height: 1.4,
+          if (status != 'Requested') ...[
+            SizedBox(height: size.height * 0.012),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: size.width * 0.035,
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

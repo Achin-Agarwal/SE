@@ -89,16 +89,12 @@ export const vendorRegisterSchema = z.object({
       message: "Please enter a valid phone number.",
     }),
 
-  role: z.enum([
-    "Photographer",
-    "Caterer",
-    "Decorator",
-    "Musician",
-    "DJ",
-    "Performer",
-  ], {
-    message: "Please select a valid vendor role.",
-  }),
+  role: z.enum(
+    ["Photographer", "Caterer", "Decorator", "Musician", "DJ", "Performer"],
+    {
+      message: "Please select a valid vendor role.",
+    }
+  ),
 
   description: z
     .string({ message: "Description is required." })
@@ -129,5 +125,16 @@ export const loginSchema = z.object({
           "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.",
       }
     ),
-    role: z.enum(["user", "Photographer", "Caterer", "Decorator", "Musician", "DJ", "Performer"], { message: "Role must be either 'user' or 'vendor'." })
+  role: z.enum(
+    [
+      "user",
+      "photographer",
+      "caterer",
+      "decorator",
+      "musician",
+      "dj",
+      "performer",
+    ],
+    { message: "Role must be valid." }
+  ),
 });

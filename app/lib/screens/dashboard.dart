@@ -7,7 +7,7 @@ import 'package:app/screens/organizer/search_screen.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+// import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/providers/username.dart';
 
@@ -28,13 +28,10 @@ class Dashboard extends ConsumerWidget {
 
     Future<void> _logout(BuildContext context) async {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_token'); // 🧹 Delete the auth token
-
+      await prefs.remove('auth_token');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Logged out successfully")));
-
-      // Optional: Navigate back to login page
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -80,7 +77,7 @@ class Dashboard extends ConsumerWidget {
                 ),
                 SizedBox(width: size.width * 0.05),
                 Text(
-                  "Guest",
+                  "Hello, ${ref.watch(usernameProvider)}",
                   style: TextStyle(
                     fontSize: size.width * 0.055,
                     fontWeight: FontWeight.w500,

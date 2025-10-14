@@ -14,9 +14,14 @@ class VendorDashboard extends StatefulWidget {
 class _VendorDashboardState extends State<VendorDashboard> {
   bool _isLoading = false;
   List<dynamic> _requests = [];
-
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _detailsController = TextEditingController();
+
+  // 🧠 Fetch vendorId (stored after login)
+  Future<String?> _getVendorId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('vendor_id');
+  }
 
   // 🧠 Fetch requests from API
   Future<void> fetchRequests() async {
@@ -25,9 +30,19 @@ class _VendorDashboardState extends State<VendorDashboard> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
+      final vendorId = await _getVendorId();
+
+      if (vendorId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Vendor ID not found. Please log in again."),
+          ),
+        );
+        return;
+      }
 
       final response = await http.get(
-        Uri.parse('https://se-hxdx.onrender.com/vendor/requests'),
+        Uri.parse('https://se-hxdx.onrender.com/vendor/$vendorId/requests'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -38,9 +53,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
         final data = jsonDecode(response.body);
         setState(() => _requests = data['data'] ?? []);
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed to fetch requests")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to fetch requests (${response.statusCode})"),
+          ),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -73,16 +90,17 @@ class _VendorDashboardState extends State<VendorDashboard> {
                     controller: _budgetController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: "Budget",
-                      hintText: "Enter budget amount",
+                      labelText: "Budget (₹)",
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _detailsController,
+                    maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: "Additional Details",
-                      hintText: "Add optional notes",
+                      border: OutlineInputBorder(),
                     ),
                   ),
                 ],
@@ -93,6 +111,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
                   child: const Text("Cancel"),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF43A047),
+                  ),
                   onPressed: () {
                     Navigator.pop(context);
                   },
@@ -105,6 +126,13 @@ class _VendorDashboardState extends State<VendorDashboard> {
 
         budget = _budgetController.text.trim();
         details = _detailsController.text.trim();
+
+        if (budget.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please enter a budget.")),
+          );
+          return;
+        }
       }
 
       final response = await http.post(
@@ -116,8 +144,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
         body: jsonEncode({
           "requestId": requestId,
           "action": action,
-          if (budget != null) "budget": budget,
-          if (details != null) "additionalDetails": details,
+          if (budget != null && budget.isNotEmpty)
+            "budget": int.tryParse(budget) ?? 0,
+          if (details != null && details.isNotEmpty)
+            "additionalDetails": details,
         }),
       );
 
@@ -139,6 +169,15 @@ class _VendorDashboardState extends State<VendorDashboard> {
     }
   }
 
+  String _formatDate(String isoString) {
+    try {
+      final date = DateTime.parse(isoString);
+      return "${date.day}-${date.month}-${date.year}";
+    } catch (_) {
+      return "—";
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -150,26 +189,26 @@ class _VendorDashboardState extends State<VendorDashboard> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F7),
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 216, 87, 166),
-        title: GestureDetector(
-          onTap: () async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('auth_token'); // delete token
-
-            // Navigate back to login screen
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false, // removes all previous routes
-            );
-          },
-          child: const Text(
-            "Vendor Dashboard",
-            style: TextStyle(color: Colors.white),
-          ),
+        backgroundColor: const Color(0xFFE91E63),
+        title: const Text(
+          "Vendor Dashboard",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
-
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _requests.isEmpty
@@ -179,10 +218,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
               itemCount: _requests.length,
               itemBuilder: (context, index) {
                 final req = _requests[index];
+                final user = req['user'] ?? {};
+                final status = req['vendorStatus'];
+
                 return Card(
-                  elevation: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  elevation: 6,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -190,63 +233,77 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          req['user']['name'] ?? "Unknown User",
+                          user['name'] ?? "Unknown User",
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF333333),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text("Event: ${req['role']}"),
-                        Text("Location: ${req['location']}"),
-                        Text("Date: ${req['eventDate']}"),
-                        Text("Description: ${req['description']}"),
-                        if (req['vendorStatus'] == 'Accepted')
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Budget: ₹${req['budget'] ?? '—'}"),
-                                Text(
-                                  "Details: ${req['additionalDetails'] ?? '—'}",
-                                ),
-                              ],
-                            ),
+                        const SizedBox(height: 4),
+                        Text("📧 ${user['email'] ?? '—'}"),
+                        Text("📞 ${user['phone'] ?? '—'}"),
+                        const Divider(height: 16),
+                        Text("🎭 Role: ${req['role']}"),
+                        Text("📍 Location: ${req['location']}"),
+                        Text("📅 Date: ${_formatDate(req['eventDate'])}"),
+                        Text("📝 Description: ${req['description']}"),
+                        const SizedBox(height: 8),
+
+                        if (status == 'Accepted')
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("💰 Budget: ₹${req['budget'] ?? '—'}"),
+                              Text(
+                                "📋 Details: ${req['additionalDetails'] ?? '—'}",
+                              ),
+                            ],
                           ),
-                        const SizedBox(height: 10),
-                        if (req['vendorStatus'] == 'Pending')
+
+                        const SizedBox(height: 12),
+
+                        if (status == 'Pending')
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              ElevatedButton(
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.check),
                                 onPressed: () =>
                                     respondToRequest(req['_id'], "accept"),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF43A047),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
                                 ),
-                                child: const Text("Accept"),
+                                label: const Text("Accept"),
                               ),
-                              ElevatedButton(
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.close),
                                 onPressed: () =>
                                     respondToRequest(req['_id'], "reject"),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFE53935),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
                                 ),
-                                child: const Text("Reject"),
+                                label: const Text("Reject"),
                               ),
                             ],
                           ),
-                        if (req['vendorStatus'] == 'Accepted')
+
+                        if (status == 'Accepted')
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () => respondToRequest(
-                                req['_id'],
-                                "accept",
-                              ), // to edit offer
+                              onPressed: () =>
+                                  respondToRequest(req['_id'], "accept"),
                               child: const Text(
-                                "Edit Offer",
+                                "✏️ Edit Offer",
                                 style: TextStyle(color: Colors.blueAccent),
                               ),
                             ),

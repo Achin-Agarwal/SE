@@ -1,7 +1,13 @@
+import 'dart:convert';
 import 'package:app/screens/organizer/vendor_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/navigation_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:app/providers/userid.dart';
+import 'package:app/providers/location.dart';
+import 'package:app/providers/date.dart';
+import 'package:app/providers/description.dart';
 
 class SearchResult extends ConsumerStatefulWidget {
   final String? selectedRole;
@@ -13,378 +19,164 @@ class SearchResult extends ConsumerStatefulWidget {
 
 class _SearchResultState extends ConsumerState<SearchResult> {
   Map<String, dynamic>? selectedVendor;
+  List<Map<String, dynamic>> vendors = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  bool _isPosting = false;
 
-  final List<Map<String, dynamic>> vendors = [
-    {
-      "id": null,
-      "name": "Sweet Delights Bakery",
-      "rating": 4.9,
-      "role": "Caterer",
-      "description":
-          "Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.Delicate pastries, exquisite cakes, and desserts for all occasions.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Cake World",
-      "rating": 4.7,
-      "role": "Caterer",
-      "description": "Custom cakes and desserts for every celebration.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Sugar & Spice",
-      "rating": 4.8,
-      "role": "Decorator",
-      "description": "Home-style baking with love and passion.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Bake My Day",
-      "rating": 3.6,
-      "role": "Musician",
-      "description": "Delicious cakes, cupcakes, and more for all occasions.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "The Dessert Studio",
-      "rating": 4.9,
-      "role": "Photographer",
-      "description": "Creative desserts and custom sweet treats.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "LensCraft Studios",
-      "rating": 4.8,
-      "role": "Photographer",
-      "description": "Capturing timeless memories with creative perspective.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Golden Frame Photography",
-      "rating": 4.5,
-      "role": "Photographer",
-      "description": "Wedding, portrait, and event photography services.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "StarSound Band",
-      "rating": 4.6,
-      "role": "Musician",
-      "description": "Live band performances for parties and weddings.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Harmony Tunes",
-      "rating": 4.2,
-      "role": "Musician",
-      "description": "Acoustic and instrumental music for all moods.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Elite Events Decor",
-      "rating": 4.7,
-      "role": "Decorator",
-      "description": "Transforming spaces into unforgettable experiences.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Bloom & Bliss",
-      "rating": 4.4,
-      "role": "Decorator",
-      "description": "Floral arrangements and elegant wedding decorations.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Melody Makers",
-      "rating": 4.9,
-      "role": "Musician",
-      "description": "Professional music group with a wide genre range.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Flavorsome Feast",
-      "rating": 4.3,
-      "role": "Caterer",
-      "description": "Gourmet dishes made to delight every palate.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Visual Verse Studio",
-      "rating": 4.8,
-      "role": "Photographer",
-      "description": "Creative wedding and fashion photography specialists.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Grand Affair Caterers",
-      "rating": 4.5,
-      "role": "Caterer",
-      "description": "Elegant dining solutions for large events and parties.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "StageGlow Events",
-      "rating": 4.6,
-      "role": "Decorator",
-      "description":
-          "Lighting, decor, and setup for unforgettable celebrations.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Rhythm Roots",
-      "rating": 4.1,
-      "role": "Musician",
-      "description": "Fusion music group bringing energy and rhythm.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "CineSnap Creations",
-      "rating": 4.9,
-      "role": "Photographer",
-      "description": "Award-winning cinematography and photography studio.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Gourmet Gala",
-      "rating": 4.8,
-      "role": "Caterer",
-      "description": "Luxury catering with a mix of global cuisines.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "DecorDazzle",
-      "rating": 4.2,
-      "role": "Decorator",
-      "description": "Theme-based decoration experts for weddings & events.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Perfect Capture",
-      "rating": 4.7,
-      "role": "Photographer",
-      "description": "Specialized in candid wedding and portrait photography.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "FoodMood Catering",
-      "rating": 4.4,
-      "role": "Caterer",
-      "description": "Delicious, hygienic, and creatively served food.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Symphony Souls",
-      "rating": 4.8,
-      "role": "Musician",
-      "description": "Soulful live band bringing your events to life.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "DreamCanvas Decor",
-      "rating": 4.3,
-      "role": "Decorator",
-      "description": "We paint your dream wedding with lights and flowers.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Candid Soul Studio",
-      "rating": 4.9,
-      "role": "Photographer",
-      "description": "Emotional and cinematic photography for modern couples.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "FeastCraft",
-      "rating": 4.5,
-      "role": "Caterer",
-      "description": "Inventive menus and seamless service for all events.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Harmony Hive",
-      "rating": 4.6,
-      "role": "Musician",
-      "description":
-          "Melodic ensemble performing both classical and modern hits.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Velvet Lights Decor",
-      "rating": 4.7,
-      "role": "Decorator",
-      "description": "Adding elegance and charm to every corner of your venue.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "SnapSphere Studio",
-      "rating": 4.8,
-      "role": "Photographer",
-      "description": "Professional photo & video coverage for all occasions.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Epicurean Edge",
-      "rating": 4.9,
-      "role": "Caterer",
-      "description": "Luxury catering that blends taste and presentation.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Rhythm Rebels",
-      "rating": 4.5,
-      "role": "Musician",
-      "description": "Dynamic band creating unforgettable vibes.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "DecorMania",
-      "rating": 4.4,
-      "role": "Decorator",
-      "description": "Bespoke decoration services with creativity and detail.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "LensLuxe",
-      "rating": 4.6,
-      "role": "Photographer",
-      "description": "High-end event and lifestyle photography experts.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Chef’s Palette",
-      "rating": 4.7,
-      "role": "Caterer",
-      "description": "Fine dining catering service with artistic presentation.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "SoulStrings",
-      "rating": 4.3,
-      "role": "Musician",
-      "description": "Live acoustic sessions for intimate gatherings.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Elegant Aura Decor",
-      "rating": 4.6,
-      "role": "Decorator",
-      "description": "Luxury decoration for modern wedding experiences.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Visionary Frames",
-      "rating": 4.9,
-      "role": "Photographer",
-      "description": "Cinematic visuals and storytelling photography.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Food Symphony",
-      "rating": 4.2,
-      "role": "Caterer",
-      "description": "Innovative cuisine with perfect flavor balance.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Echo Beats",
-      "rating": 4.7,
-      "role": "Musician",
-      "description": "Energetic band with live DJ performances.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "Drape & Dazzle",
-      "rating": 4.5,
-      "role": "Decorator",
-      "description": "Custom decor solutions to match any theme or vibe.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "AuraCaptures",
-      "rating": 4.8,
-      "role": "Photographer",
-      "description": "Vibrant photos that capture emotions in motion.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "TasteQuest",
-      "rating": 4.1,
-      "role": "Caterer",
-      "description": "Quality food service with innovative menu options.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "RhythmRise",
-      "rating": 4.6,
-      "role": "Musician",
-      "description": "Upbeat performers to set the tone of your event.",
-      "selected": false,
-    },
-    {
-      "id": null,
-      "name": "BloomVista Decor",
-      "rating": 4.4,
-      "role": "Decorator",
-      "description": "Aesthetic event design with floral art and elegance.",
-      "selected": false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    fetchVendors();
+  }
+
+  Future<void> fetchVendors() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final url =
+          "https://achin-se-9kiip.ondigitalocean.app/user/vendors/${widget.selectedRole}";
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          vendors = data.map((v) {
+            return {
+              "id": v["_id"],
+              "name": v["name"],
+              "role": v["role"],
+              "rating": (v["rating"] ?? 0).toDouble(),
+              "description": v["description"] ?? "",
+              "selected": false,
+              "email": v["email"],
+              "location": v["location"],
+            };
+          }).toList();
+        });
+      } else {
+        setState(() => _hasError = true);
+      }
+    } catch (e) {
+      setState(() => _hasError = true);
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> sendRequestToVendors() async {
+    final selectedVendorIds = vendors
+        .where((v) => v["selected"] == true)
+        .map<String>((v) => v["id"])
+        .toList();
+
+    if (selectedVendorIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select at least one vendor")),
+      );
+      return;
+    }
+
+    final userId = ref.read(userIdProvider);
+    final location = ref.read(locationProvider);
+    final eventDate = ref.read(dateProvider);
+    final description = ref.read(descriptionProvider);
+
+    if (userId == null ||
+        location == null ||
+        eventDate == null ||
+        description == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Missing event details. Please fill them first."),
+        ),
+      );
+      return;
+    }
+
+    final body = {
+      "userId": userId,
+      "vendors": selectedVendorIds,
+      "role": widget.selectedRole,
+      "location": location,
+      // 👇 Convert DateTime object to string (backend expects text)
+      "eventDate": eventDate is DateTime
+          ? eventDate.toIso8601String().split("T").first
+          : eventDate.toString(),
+      "description": description,
+    };
+
+    setState(() => _isPosting = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse(
+          "https://achin-se-9kiip.ondigitalocean.app/user/sendrequests",
+        ),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Requests sent successfully!")),
+        );
+
+        // ✅ Move to next navIndex only on success
+        ref.read(navIndexProvider.notifier).state = 1;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Failed to send requests. (${response.statusCode}) Try again.",
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error sending requests: $e")));
+    } finally {
+      setState(() => _isPosting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final vendorsOfRole = vendors.where(
-      (v) => v["role"] == widget.selectedRole,
-    );
-
+    final vendorsOfRole = vendors;
     final allSelected =
         vendorsOfRole.isNotEmpty &&
         vendorsOfRole.every((v) => v["selected"] == true);
 
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("Failed to load vendors. Please try again."),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: fetchVendors,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF4B7D),
+              ),
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
-      // decoration: BoxDecoration(color: Colors.red),
       padding: EdgeInsets.only(bottom: size.height * 0.015),
       width: size.width * 0.9,
       child: selectedVendor == null
@@ -396,19 +188,12 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.only(right: size.width * 0.02),
-                        ),
-                        Text(
-                          "List",
-                          style: TextStyle(
-                            fontSize: size.width * 0.06,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      "List",
+                      style: TextStyle(
+                        fontSize: size.width * 0.06,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Row(
                       children: [
@@ -423,9 +208,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                         IconButton(
                           onPressed: () {
                             setState(() {
-                              for (var vendor in vendors.where(
-                                (v) => v["role"] == widget.selectedRole,
-                              )) {
+                              for (var vendor in vendorsOfRole) {
                                 vendor["selected"] = !allSelected;
                               }
                             });
@@ -448,11 +231,11 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                   child: ListView.builder(
                     itemCount: vendorsOfRole.length,
                     itemBuilder: (context, index) {
-                      final vendor = vendorsOfRole.elementAt(index);
+                      final vendor = vendorsOfRole[index];
                       return InkWell(
                         onTap: () {
                           setState(() {
-                            selectedVendor = vendor; // 👈 open detail
+                            selectedVendor = vendor;
                           });
                         },
                         child: Container(
@@ -470,7 +253,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Avatar
                               CircleAvatar(
                                 radius: 20,
                                 backgroundColor: Colors.brown[300],
@@ -503,7 +285,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                                         ...List.generate(
                                           5,
                                           (i) => Icon(
-                                            i < vendor["rating"].floor()
+                                            i < (vendor["rating"] ?? 0).floor()
                                                 ? Icons.star
                                                 : Icons.star_border,
                                             color: Colors.amber,
@@ -522,7 +304,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                                     ),
                                     SizedBox(height: size.height * 0.004),
                                     Text(
-                                      vendor["description"],
+                                      vendor["description"] ?? "",
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
@@ -534,7 +316,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                                 ),
                               ),
 
-                              // Checkbox
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -559,13 +340,11 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                   ),
                 ),
 
-                // Done button
+                // ✅ Done button triggers POST
                 Padding(
                   padding: EdgeInsets.only(top: size.height * 0.015),
                   child: ElevatedButton(
-                    onPressed: () {
-                      ref.read(navIndexProvider.notifier).state = 1;
-                    },
+                    onPressed: _isPosting ? null : sendRequestToVendors,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFF4B7D),
                       minimumSize: Size(double.infinity, size.height * 0.065),
@@ -573,14 +352,16 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: Text(
-                      "Done",
-                      style: TextStyle(
-                        fontSize: size.width * 0.045,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isPosting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            "Done",
+                            style: TextStyle(
+                              fontSize: size.width * 0.045,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -589,7 +370,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
               vendor: selectedVendor!,
               onClose: () {
                 setState(() {
-                  selectedVendor = null; // 👈 back to list
+                  selectedVendor = null;
                 });
               },
             ),

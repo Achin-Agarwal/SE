@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/username.dart';
+import 'package:app/providers/userid.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -28,57 +29,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    const String apiUrl = "https://se-hxdx.onrender.com/vendor/login";
+    const String apiUrl =
+        "https://achin-se-9kiip.ondigitalocean.app/vendor/login";
 
     try {
-      // final response = await http.post(
-      //   Uri.parse(apiUrl),
-      //   headers: {'Content-Type': 'application/json'},
-      //   body: jsonEncode({
-      //     "email": _emailController.text.trim(),
-      //     "password": _passwordController.text,
-      //     "role": _selectedRole,
-      //   }),
-      // );
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "email": _emailController.text.trim(),
+          "password": _passwordController.text,
+          "role": _selectedRole != null
+              ? _selectedRole![0].toLowerCase() + _selectedRole!.substring(1)
+              : null,
+        }),
+      );
+      print("Trying to login...");
 
-      // final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-      // if (response.statusCode == 200 && data['status'] == 'success') {
-      //   final user = data['data']['user'];
-      // final token = data['data']['token'];
-      final token =
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZWRlOWViZWZmOWM1ZjMyZTMwNmJhMCIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzYwNDQ1MzEzLCJleHAiOjE3NjEwNTAxMTN9.NLTCsqDhiqkHeRdxSnOjUX85CX8SZ46E88REpHQvm6g";
+      if (response.statusCode == 200 && data['status'] == 'success') {
+        final user = data['data']['user'];
+        final token = data['data']['token'];
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', token);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', token);
 
-      // ref.read(usernameProvider.notifier).state = user['name'];
-      // ref.read(userIdProvider.notifier).state = user['id'];
+        ref.read(usernameProvider.notifier).state = user['name'];
+        ref.read(userIdProvider.notifier).state = user['id'];
 
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(content: Text("Login successful! Welcome ${user['name']}")),
-      // );
-
-      // TODO: Navigate to your dashboard or main screen
-      // Navigator.pushReplacementNamed(context, '/dashboard');
-      // } else {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(content: Text(data['message'] ?? "Login failed")),
-      //   );
-      // }
-      print("Login successful! Welcome ");
-      if (_selectedRole == 'User') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => SafeArea(child: Dashboard())),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Login successful! Welcome ${user['name']}")),
         );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SafeArea(child: VendorDashboard()),
-          ),
-        );
+
+        print("Login successful! Welcome ");
+        if (_selectedRole == 'User') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SafeArea(child: Dashboard()),
+            ),
+          );
+        } else {
+          print("Vendor Dashboard");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SafeArea(child: VendorDashboard()),
+            ),
+          );
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(

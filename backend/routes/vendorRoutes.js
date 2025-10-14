@@ -77,11 +77,14 @@ router.post(
   safeHandler(async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.log(parsed.error);
       return res.error(400, "Validation failed", "VALIDATION_ERROR");
     }
 
     const { email, password, role } = parsed.data;
-    if (role == "user") {
+
+    // 🧍‍♂️ USER LOGIN
+    if (role === "user") {
       const user = await User.findOne({ email });
       if (!user) {
         return res.error(
@@ -90,6 +93,7 @@ router.post(
           "INVALID_CREDENTIALS"
         );
       }
+
       const isPasswordValid = bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         return res.error(
@@ -98,7 +102,9 @@ router.post(
           "INVALID_CREDENTIALS"
         );
       }
+
       const token = generateToken({ id: user._id, role: "user" });
+
       return res.success(200, "Login successful", {
         token,
         user: {
@@ -108,10 +114,19 @@ router.post(
       });
     }
 
+    // 🧑‍🎤 VENDOR LOGIN
     const vendor = await Vendor.findOne({ email });
-    console.log(vendor);
     if (!vendor) {
       return res.error(401, "Invalid email or password", "INVALID_CREDENTIALS");
+    }
+
+    // Check if role matches database
+    if (vendor.role !== role.toLowerCase()) {
+      return res.error(
+        400,
+        `Role mismatch. This vendor is registered as '${vendor.role}'.`,
+        "ROLE_MISMATCH"
+      );
     }
 
     const isPasswordValid = bcrypt.compare(password, vendor.password);
@@ -126,6 +141,7 @@ router.post(
       vendor: {
         id: vendor._id,
         name: vendor.name,
+        role: vendor.role,
       },
     });
   })

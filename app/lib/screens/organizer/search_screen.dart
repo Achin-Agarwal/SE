@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/providers/role.dart';
+import 'package:app/providers/date.dart';
+import 'package:app/providers/location.dart';
+import 'package:app/providers/description.dart';
 import 'search_results.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? selectedRole;
   DateTime? selectedDate;
   final TextEditingController locationController = TextEditingController();
@@ -58,6 +63,14 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
+  void _saveToProviders() {
+    ref.read(roleProvider.notifier).state = selectedRole;
+    ref.read(dateProvider.notifier).state = selectedDate;
+    ref.read(locationProvider.notifier).state = locationController.text.trim();
+    ref.read(descriptionProvider.notifier).state = descriptionController.text
+        .trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -67,10 +80,7 @@ class _SearchScreenState extends State<SearchScreen> {
       child: Container(
         width: size.width * 0.9,
         height: size.height * 0.72,
-        padding: EdgeInsets.only(
-          left: size.width * 0.04,
-          right: size.width * 0.04,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(size.width * 0.03),
@@ -104,6 +114,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.02),
 
+          // Dropdown
           DropdownButtonFormField<String>(
             decoration: InputDecoration(
               prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
@@ -132,6 +143,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.02),
 
+          // Date Picker
           TextFormField(
             readOnly: true,
             onTap: () => _selectDate(context),
@@ -141,10 +153,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 size: size.width * 0.075,
               ),
               labelText: "Select Date",
-              labelStyle: TextStyle(
-                fontSize: size.width * 0.048,
-                fontWeight: FontWeight.w500,
-              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -157,6 +165,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.02),
 
+          // Location
           TextFormField(
             controller: locationController,
             decoration: InputDecoration(
@@ -165,10 +174,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 size: size.width * 0.075,
               ),
               labelText: "Enter Location",
-              labelStyle: TextStyle(
-                fontSize: size.width * 0.048,
-                fontWeight: FontWeight.w500,
-              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -185,15 +190,12 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.01),
 
+          // Description
           TextFormField(
             controller: descriptionController,
             maxLines: size.height > 700 ? 6 : 4,
             decoration: InputDecoration(
               hintText: "Add Description",
-              hintStyle: TextStyle(
-                fontSize: size.width * 0.048,
-                color: Colors.grey,
-              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -201,11 +203,15 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.03),
 
+          // Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: isFormValid
-                  ? () => setState(() => showResults = true)
+                  ? () {
+                      _saveToProviders(); // ✅ Save data to providers
+                      setState(() => showResults = true);
+                    }
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF4B7D),
@@ -213,13 +219,12 @@ class _SearchScreenState extends State<SearchScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
-                disabledBackgroundColor: Colors.grey[300],
               ),
               child: Text(
                 "Find Vendors",
                 style: TextStyle(
                   fontSize: size.width * 0.05,
-                  color: isFormValid ? Colors.white : Colors.grey[600],
+                  color: Colors.white,
                 ),
               ),
             ),

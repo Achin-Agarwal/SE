@@ -11,14 +11,7 @@ const vendorSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      enum: [
-        "Photographer",
-        "Caterer",
-        "Decorator",
-        "Musician",
-        "DJ",
-        "Performer",
-      ],
+      enum: ["photographer", "caterer", "decorator", "musician"],
     },
 
     description: { type: String, required: true },
