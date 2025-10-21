@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(const Duration(seconds: 3), () {
       if (widget.token == null || widget.role == null) {
         Get.offAll(() => const LoginScreen());
-      } else if (widget.role == 'user') {
+      } else if (widget.role == 'User') {
         Get.offAll(() => const Dashboard());
       } else {
         Get.offAll(() => const VendorDashboard());

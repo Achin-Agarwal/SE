@@ -47,19 +47,28 @@ class _SearchResultState extends ConsumerState<SearchResult> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        print("Fetched vendors: $data");
         setState(() {
           vendors = data.map((v) {
             return {
-              "id": v["_id"],
-              "name": v["name"],
-              "role": v["role"],
+              "id": v["_id"]?.toString() ?? "",
+              "name": v["name"]?.toString() ?? "Unnamed",
+              "role": v["role"]?.toString() ?? "",
               "rating": (v["rating"] is num)
                   ? (v["rating"] as num).toDouble()
                   : 0.0,
-              "description": v["description"] ?? "",
+              "description": v["description"]?.toString() ?? "",
               "selected": false,
-              "email": v["email"],
-              "location": v["location"],
+              "email": v["email"]?.toString() ?? "",
+              "location": v["location"] ?? {},
+              "profileImage": v["profileImage"]?.toString() ?? "",
+              "workImages": (v["workImages"] is List)
+                  ? List<String>.from(
+                      (v["workImages"] as List)
+                          .map((img) => img?.toString() ?? "")
+                          .where((img) => img.isNotEmpty),
+                    )
+                  : <String>[],
             };
           }).toList();
         });
@@ -191,8 +200,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
           ? Column(
               children: [
                 SizedBox(height: size.height * 0.01),
-
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -233,8 +240,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                     ),
                   ],
                 ),
-
-                // Vendor List
                 Expanded(
                   child: ListView.builder(
                     itemCount: vendorsOfRole.length,
@@ -262,20 +267,35 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.brown[300],
-                                child: Text(
-                                  vendor["name"][0],
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: size.width * 0.045,
+                                radius: size.width * 0.07,
+                                backgroundColor: Colors.grey[300],
+                                child: ClipOval(
+                                  child: Image.network(
+                                    vendor["profileImage"] ?? "",
+                                    fit: BoxFit.cover,
+                                    width: size.width * 0.14,
+                                    height: size.width * 0.14,
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null)
+                                            return child;
+                                          return const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          );
+                                        },
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(
+                                              Icons.person,
+                                              color: Colors.black54,
+                                              size: 28,
+                                            ),
                                   ),
                                 ),
                               ),
                               SizedBox(width: size.width * 0.04),
-
-                              // Vendor info
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,8 +367,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                     },
                   ),
                 ),
-
-                // ✅ Done button triggers POST
                 Padding(
                   padding: EdgeInsets.only(top: size.height * 0.015),
                   child: ElevatedButton(

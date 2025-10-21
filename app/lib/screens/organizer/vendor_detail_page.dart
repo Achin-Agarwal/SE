@@ -15,32 +15,22 @@ class VendorDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    final List<String> images = [
-      'assets/1.png',
-      'assets/2.png',
-      'assets/3.png',
-      'assets/4.png',
-      'assets/5.png',
-      'assets/6.png',
-      'assets/7.png',
-    ];
-
-    void openImage(String imagePath) {
-      showGeneralDialog(
+    void openImage(String imagePath, String heroTag) {
+      showDialog(
         context: context,
-        barrierDismissible: true,
-        barrierLabel: 'Image',
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => ImagePopup(
-          imagePath: imagePath,
-          onClose: () => Navigator.of(context).pop(),
+        builder: (_) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: EdgeInsets.zero,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Center(
+              child: Hero(
+                tag: heroTag,
+                child: Image.network(imagePath, fit: BoxFit.contain),
+              ),
+            ),
+          ),
         ),
-        transitionBuilder: (_, anim, __, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(parent: anim, curve: Curves.easeInOut),
-            child: child,
-          );
-        },
       );
     }
 
@@ -61,6 +51,7 @@ class VendorDetailCard extends StatelessWidget {
     //       ),
     //     ],
     //   ),
+    print(vendor);
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: size.width * 0.045,
@@ -91,14 +82,25 @@ class VendorDetailCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  radius: 32,
-                  backgroundColor: Colors.pink.shade100,
-                  child: Text(
-                    vendor["name"][0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
+                  radius: size.width * 0.09,
+                  backgroundColor: Colors.grey[300],
+                  child: ClipOval(
+                    child: Image.network(
+                      vendor["profileImage"] ?? "",
+                      fit: BoxFit.cover,
+                      width: size.width * 0.18,
+                      height: size.width * 0.18,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.person,
+                        color: Colors.black54,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),
@@ -144,10 +146,7 @@ class VendorDetailCard extends StatelessWidget {
                 ),
               ],
             ),
-
             SizedBox(height: size.height * 0.02),
-
-            // Description
             Container(
               decoration: BoxDecoration(
                 color: Colors.pink.shade50.withOpacity(0.5),
@@ -163,10 +162,7 @@ class VendorDetailCard extends StatelessWidget {
                 ),
               ),
             ),
-
             SizedBox(height: size.height * 0.03),
-
-            // Previous Work Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -186,46 +182,71 @@ class VendorDetailCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: images.length,
-              itemBuilder: (context, index) {
-                final img = images[index];
-                return GestureDetector(
-                  onTap: () => openImage(img),
-                  child: Hero(
-                    tag: img,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.asset(img, fit: BoxFit.cover),
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.black.withOpacity(0.05),
-                                  Colors.black.withOpacity(0.15),
-                                ],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
+            SizedBox(
+              height:
+                  (vendor["workImages"]?.length ?? 0) /
+                  3 *
+                  (size.width * 0.3 + 8),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: vendor["workImages"]?.length ?? 0,
+                itemBuilder: (context, index) {
+                  final img = vendor["workImages"][index];
+                  return GestureDetector(
+                    onTap: () => openImage(img, '${vendor["id"]}_$index'),
+                    child: Hero(
+                      tag: '${vendor["id"]}_$index',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              img,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.black.withOpacity(0.05),
+                                    Colors.black.withOpacity(0.15),
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ],
         ),

@@ -15,21 +15,18 @@ import multerS3 from "multer-s3";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-// ✅ Create S3 client (v3)
 const s3 = new S3Client({
-  endpoint: process.env.DO_SPACES_ENDPOINT, // e.g. "https://blr1.digitaloceanspaces.com"
+  endpoint: process.env.DO_SPACES_ENDPOINT,
   region: "blr1",
+  forcePathStyle: false,
   credentials: {
     accessKeyId: process.env.DO_SPACES_KEY,
     secretAccessKey: process.env.DO_SPACES_SECRET,
   },
 });
-
-// ✅ Multer-S3 now works with v3 client directly
 export const upload = multer({
   storage: multerS3({
-    s3, // <-- v3 client
+    s3,
     bucket: process.env.DO_SPACES_BUCKET,
     acl: "public-read",
     key: (req, file, cb) => {
