@@ -5,6 +5,7 @@ import 'package:app/screens/login.dart';
 import 'package:http/http.dart' as http;
 import 'package:app/providers/userid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ionicons/ionicons.dart';
 
 class VendorDashboard extends ConsumerStatefulWidget {
   const VendorDashboard({super.key});
@@ -19,10 +20,8 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _detailsController = TextEditingController();
 
-  // 🧠 Fetch requests from API
   Future<void> fetchRequests() async {
     setState(() => _isLoading = true);
-
     try {
       final vendorId = ref.read(userIdProvider);
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -53,13 +52,9 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-
-        // ✅ API returns a list directly
         if (decoded is List) {
           setState(() {
-            _requests = decoded
-                .whereType<Map<String, dynamic>>() // ensure elements are maps
-                .toList();
+            _requests = decoded.whereType<Map<String, dynamic>>().toList();
           });
         } else {
           setState(() => _requests = []);
@@ -80,7 +75,6 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
     }
   }
 
-  // ✅ Accept / Reject request
   Future<void> respondToRequest(String requestId, String action) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -96,73 +90,72 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       String? budget;
       String? details;
 
-      // 🟩 If vendor is accepting, ask for details
       if (action == "accept") {
         bool submitted = false;
 
         await showDialog(
           context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text("Provide Offer Details"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _budgetController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Budget (₹)",
-                      border: OutlineInputBorder(),
-                    ),
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text("Provide Offer Details"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _budgetController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: "Budget (₹)",
+                    prefixIcon: Icon(Ionicons.cash_outline),
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _detailsController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: "Additional Details",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF43A047),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _detailsController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: "Additional Details",
+                    prefixIcon: Icon(Ionicons.document_text_outline),
+                    border: OutlineInputBorder(),
                   ),
-                  onPressed: () {
-                    if (_budgetController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Please enter a budget.")),
-                      );
-                      return;
-                    }
-                    submitted = true;
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Submit"),
                 ),
               ],
-            );
-          },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE91E63),
+                ),
+                onPressed: () {
+                  if (_budgetController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Please enter a budget.")),
+                    );
+                    return;
+                  }
+                  submitted = true;
+                  Navigator.pop(context);
+                },
+                child: const Text("Submit"),
+              ),
+            ],
+          ),
         );
 
-        if (!submitted) return; // if user cancelled
-
+        if (!submitted) return;
         budget = _budgetController.text.trim();
         details = _detailsController.text.trim();
-
         _budgetController.clear();
         _detailsController.clear();
       }
 
-      // 🟨 Build the payload
       final payload = {
         "requestId": requestId,
         "action": action,
@@ -171,7 +164,6 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         if (details != null && details.isNotEmpty) "additionalDetails": details,
       };
 
-      // 🟧 Send API request
       final response = await http.post(
         Uri.parse('https://achin-se-9kiip.ondigitalocean.app/vendor/respond'),
         headers: {
@@ -187,6 +179,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
             content: Text(
               "Request ${action == 'accept' ? 'accepted' : 'rejected'} successfully!",
             ),
+            backgroundColor: action == 'accept' ? Colors.green : Colors.red,
           ),
         );
         fetchRequests();
@@ -227,16 +220,16 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         backgroundColor: const Color(0xFFE91E63),
         title: const Text(
           "Vendor Dashboard",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: const Icon(Ionicons.log_out_outline, color: Colors.white),
             onPressed: () {
               ref.invalidate(userIdProvider);
-              SharedPreferences.getInstance().then((prefs) {
-                prefs.remove('auth_token');
-              });
+              SharedPreferences.getInstance().then(
+                (prefs) => prefs.remove('auth_token'),
+              );
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -251,123 +244,201 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         color: const Color(0xFFE91E63),
         backgroundColor: Colors.white,
         child: _isLoading
-            ? ListView(
-                children: const [
-                  SizedBox(
-                    height: 400,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ],
-              )
+            ? const Center(child: CircularProgressIndicator())
             : _requests.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(
-                    height: 400,
-                    child: Center(child: Text("No pending requests")),
-                  ),
-                ],
-              )
+            ? const Center(child: Text("No pending requests"))
             : ListView.builder(
                 padding: const EdgeInsets.all(12),
                 itemCount: _requests.length,
                 itemBuilder: (context, index) {
                   final req = _requests[index];
-                  final userStatus = req['userStatus']?.toString() ?? "Pending";
-                  final vendorStatus =
-                      req['vendorStatus']?.toString() ?? "Pending";
                   final user = (req['user'] is Map)
                       ? req['user'] as Map<String, dynamic>
                       : {};
-                  final status = req['vendorStatus']?.toString() ?? "Pending";
+                  final userStatus = req['userStatus'] ?? "Pending";
+                  final vendorStatus = req['vendorStatus'] ?? "Pending";
+                  final statusColor = vendorStatus == "Accepted"
+                      ? Colors.green
+                      : vendorStatus == "Rejected"
+                      ? Colors.red
+                      : Colors.orange;
 
-                  return Card(
+                  return Container(
                     margin: const EdgeInsets.symmetric(vertical: 8),
-                    elevation: 6,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.pink.shade50, Colors.white],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.pink.withOpacity(0.15),
+                          offset: const Offset(0, 4),
+                          blurRadius: 10,
+                        ),
+                      ],
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            user['name']?.toString() ?? "Unknown User",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF333333),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text("📧 ${user['email'] ?? '—'}"),
-                          Text("📞 ${user['phone'] ?? '—'}"),
-                          const Divider(height: 16),
-                          Text("🎭 Role: ${req['role'] ?? '—'}"),
-                          Text("📍 Location: ${req['location'] ?? '—'}"),
-                          Text("📅 Date: ${_formatDate(req['eventDate'])}"),
-                          Text("📝 Description: ${req['description'] ?? '—'}"),
-                          const SizedBox(height: 8),
-
-                          if (status == 'Accepted')
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("💰 Budget: ₹${req['budget'] ?? '—'}"),
-                                Text(
-                                  "📋 Details: ${req['additionalDetails'] ?? '—'}",
+                          Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 26,
+                                backgroundColor: Color(0xFFE91E63),
+                                child: Icon(
+                                  Ionicons.person_outline,
+                                  color: Colors.white,
+                                  size: 26,
                                 ),
-                              ],
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user['name']?.toString() ??
+                                          "Unknown User",
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF333333),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      user['email'] ?? "No email",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                vendorStatus == "Accepted"
+                                    ? Ionicons.checkmark_circle
+                                    : vendorStatus == "Rejected"
+                                    ? Ionicons.close_circle
+                                    : Ionicons.time_outline,
+                                color: statusColor,
+                                size: 28,
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 20),
+                          Row(
+                            children: [
+                              const Icon(Ionicons.briefcase_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text("Role: ${req['role'] ?? '—'}"),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Ionicons.location_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text("Location: ${req['location'] ?? '—'}"),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Ionicons.calendar_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                "Event Date: ${_formatDate(req['eventDate'])}",
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text("📝 ${req['description'] ?? '—'}"),
+                          const SizedBox(height: 10),
+
+                          if (vendorStatus == "Accepted")
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("💰 Budget: ₹${req['budget'] ?? '—'}"),
+                                  Text(
+                                    "📋 Details: ${req['additionalDetails'] ?? '—'}",
+                                  ),
+                                ],
+                              ),
                             ),
 
                           const SizedBox(height: 12),
-
-                          if (userStatus == 'Pending')
+                          if (userStatus == "Pending")
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 ElevatedButton.icon(
-                                  icon: const Icon(Icons.check),
+                                  icon: const Icon(Ionicons.checkmark_outline),
+                                  label: const Text("Accept"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                   onPressed: () => respondToRequest(
-                                    req['_id']?.toString() ?? "",
+                                    req['_id'] ?? "",
                                     "accept",
                                   ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF43A047),
-                                  ),
-                                  label: const Text("Accept"),
                                 ),
                                 ElevatedButton.icon(
-                                  icon: const Icon(Icons.close),
+                                  icon: const Icon(Ionicons.close_outline),
+                                  label: const Text("Reject"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                   onPressed: () => respondToRequest(
-                                    req['_id']?.toString() ?? "",
+                                    req['_id'] ?? "",
                                     "reject",
                                   ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFE53935),
-                                  ),
-                                  label: const Text("Reject"),
                                 ),
                               ],
                             )
                           else
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: userStatus == 'Accepted'
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                "User has ${userStatus.toLowerCase()} your offer",
-                                style: TextStyle(
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
                                   color: userStatus == 'Accepted'
-                                      ? Colors.green
-                                      : Colors.red,
-                                  fontWeight: FontWeight.bold,
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  "User has ${userStatus.toLowerCase()} your offer",
+                                  style: TextStyle(
+                                    color: userStatus == 'Accepted'
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),

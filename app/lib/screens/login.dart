@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/username.dart';
 import 'package:app/providers/userid.dart';
+import 'package:lottie/lottie.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -55,6 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
+        await prefs.setString('role', _selectedRole!);
 
         if (_selectedRole == 'User') {
           print("Setting user data");
@@ -108,7 +110,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             children: [
               Column(
                 children: [
-                  Image.asset('assets/logo.png', height: 80),
+                  SizedBox(
+                    width: size.width * 0.5,
+                    child: Lottie.asset(
+                      'assets/cocktail.json',
+                      repeat: true,
+                      animate: true,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   const Text.rich(
                     TextSpan(
@@ -136,7 +145,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 40),
 
-              // Email
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -154,7 +162,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Role Dropdown
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 items: roles
@@ -173,7 +180,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Password
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
@@ -190,7 +196,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 10),
 
-              // Forgot password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -203,7 +208,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 10),
 
-              // Login button
               SizedBox(
                 width: size.width,
                 height: 50,
@@ -229,7 +233,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Sign Up
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
