@@ -53,7 +53,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
               "id": v["_id"],
               "name": v["name"],
               "role": v["role"],
-              "rating": (v["rating"] ?? 0).toDouble(),
+              "rating": (v["rating"] is num)
+                  ? (v["rating"] as num).toDouble()
+                  : 0.0,
               "description": v["description"] ?? "",
               "selected": false,
               "email": v["email"],
@@ -143,9 +145,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error sending requests: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error sending requests: $e")));
     } finally {
       setState(() => _isPosting = false);
     }

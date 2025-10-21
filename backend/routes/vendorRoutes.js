@@ -174,6 +174,7 @@ router.post(
         user: {
           id: user._id,
           name: user.name,
+          image: user.profileImage,
         },
       });
     }

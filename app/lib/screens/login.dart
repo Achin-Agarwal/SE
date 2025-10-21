@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/username.dart';
 import 'package:app/providers/userid.dart';
+import 'package:app/providers/image.dart';
 import 'package:lottie/lottie.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -61,10 +62,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           print("Setting user data");
           ref.read(usernameProvider.notifier).state = user['name'];
           ref.read(userIdProvider.notifier).state = user['id'];
+          ref.read(imageProvider.notifier).state = user['image'];
         } else {
           print("Setting vendor data");
           ref.read(usernameProvider.notifier).state = vendor['name'];
           ref.read(userIdProvider.notifier).state = vendor['id'];
+          ref.read(imageProvider.notifier).state = vendor['image'];
         }
         print(token);
 

@@ -12,7 +12,9 @@ void main() async {
 
   SharedPreferences prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('auth_token');
+  print(token);
   final role = prefs.getString('role');
+  print(role);
 
   runApp(
     ProviderScope(

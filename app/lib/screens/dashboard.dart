@@ -1,3 +1,4 @@
+import 'package:app/providers/image.dart';
 import 'package:app/providers/navigation_provider.dart';
 import 'package:app/screens/login.dart';
 import 'package:app/screens/organizer/cart.dart';
@@ -27,6 +28,9 @@ class Dashboard extends ConsumerWidget {
       const Profile(),
     ];
 
+    String imageUrl = ref.watch(imageProvider);
+
+    @override
     Future<void> _logout(BuildContext context) async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('auth_token');
@@ -66,12 +70,24 @@ class Dashboard extends ConsumerWidget {
                   child: CircleAvatar(
                     radius: 22,
                     backgroundColor: Colors.pink[50],
-                    child: Text(
-                      "G",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: size.width * 0.06,
+                    child: ClipOval(
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        width: 44,
+                        height: 44,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.person,
+                              color: Colors.black54,
+                              size: 28,
+                            ),
                       ),
                     ),
                   ),

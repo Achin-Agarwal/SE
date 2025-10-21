@@ -134,6 +134,7 @@ router.post(
       user: {
         id: user._id,
         name: user.name,
+        image: user.profileImage,
       },
     });
   })
@@ -203,7 +204,7 @@ router.get(
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
       }
-      
+
       const nearbyVendors = vendors.filter((vendor) => {
         if (!vendor.location) return false;
         const distance = getDistance(

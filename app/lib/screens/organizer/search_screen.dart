@@ -1,10 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import 'dart:convert';
 import 'package:app/providers/role.dart';
 import 'package:app/providers/date.dart';
 import 'package:app/providers/location.dart';
 import 'package:app/providers/description.dart';
+import 'package:app/providers/projectname.dart';
+import 'package:app/providers/userid.dart';
+import 'package:app/url.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+
 import 'search_results.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -21,8 +27,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? currentLocation;
   double? latitude;
   double? longitude;
+  String? selectedProject;
+
+  List<String> projects = [];
+  bool isLoadingProjects = false;
 
   final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController projectNameController = TextEditingController();
   bool showResults = false;
 
   final List<String> roles = [
@@ -33,12 +44,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   ];
 
   bool get isFormValid =>
+      selectedProject != null &&
       selectedRole != null &&
       selectedDate != null &&
       endDate != null &&
       latitude != null &&
       longitude != null &&
       descriptionController.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchProjects();
+  }
 
   Future<void> _selectStartDateTime(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
@@ -92,6 +110,101 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
+  Future<void> fetchProjects() async {
+    setState(() {
+      isLoadingProjects = true;
+    });
+    try {
+      final id = ref.read(userIdProvider);
+      final apiUrl = Uri.parse('$url/user/project/$id');
+      final response = await http.get(apiUrl);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Project fetch response data: $data');
+        final List<String> fetchedProjects = (data as List)
+            .map((p) => p['name'] as String)
+            .toList();
+        print('Fetched projects: $fetchedProjects');
+        setState(() {
+          projects = fetchedProjects;
+        });
+        final savedProject = ref.read(projectNameProvider);
+        if (savedProject != null && savedProject.isNotEmpty) {
+          setState(() {
+            selectedProject = savedProject;
+          });
+          _saveToProviders();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching projects: $e');
+    } finally {
+      setState(() {
+        isLoadingProjects = false;
+      });
+    }
+  }
+
+  Future<void> createProject(String name, BuildContext dialogCtx) async {
+    try {
+      final id = ref.read(userIdProvider);
+      final apiUrl = Uri.parse('$url/user/project/$id');
+      final response = await http.post(
+        apiUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': name}),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        Navigator.of(dialogCtx).pop();
+        setState(() {
+          projects.add(name);
+          selectedProject = name;
+        });
+        ref.read(projectNameProvider.notifier).state = name;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Project created successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to create project')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void showCreateProjectDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Create New Project'),
+        content: TextField(
+          controller: projectNameController,
+          decoration: const InputDecoration(hintText: 'Project Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (projectNameController.text.trim().isNotEmpty) {
+                createProject(projectNameController.text.trim(), dialogCtx);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -135,6 +248,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _saveToProviders() {
+    ref.read(projectNameProvider.notifier).state = selectedProject ?? '';
     ref.read(roleProvider.notifier).state = selectedRole;
     ref.read(dateProvider.notifier).state = {
       'start': selectedDate,
@@ -146,12 +260,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     };
     ref.read(descriptionProvider.notifier).state = descriptionController.text
         .trim();
-  }
-
-  @override
-  void dispose() {
-    descriptionController.dispose();
-    super.dispose();
   }
 
   @override
@@ -188,6 +296,56 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: size.height * 0.02),
+
+          // 🧩 Project Dropdown
+          Text(
+            "Select Project",
+            style: TextStyle(
+              fontSize: size.width * 0.05,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: size.height * 0.015),
+          isLoadingProjects
+              ? const Center(child: CircularProgressIndicator())
+              : DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(
+                      Icons.folder_open,
+                      size: size.width * 0.075,
+                    ),
+                    labelText: "Select Project",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(size.width * 0.03),
+                    ),
+                  ),
+                  value: selectedProject,
+                  onChanged: (value) {
+                    if (value == 'Create New Project') {
+                      showCreateProjectDialog();
+                    } else {
+                      setState(() {
+                        selectedProject = value;
+                      });
+                    }
+                  },
+                  items: [
+                    ...projects.map(
+                      (proj) =>
+                          DropdownMenuItem(value: proj, child: Text(proj)),
+                    ),
+                    const DropdownMenuItem(
+                      value: 'Create New Project',
+                      child: Text(
+                        '➕ Create New Project',
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+          SizedBox(height: size.height * 0.03),
+
+          // 👇 Rest of the UI
           Text(
             "What are you looking for?",
             style: TextStyle(
@@ -195,164 +353,179 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
+
+          // ... rest of your existing form fields below (same as your code)
+          // Keep the dropdowns, date pickers, location, description, and Find Vendors button unchanged
           SizedBox(height: size.height * 0.02),
-
-          DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
-              labelText: "Select Role",
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(size.width * 0.03),
-              ),
-            ),
-            value: selectedRole,
-            onChanged: (value) => setState(() => selectedRole = value),
-            items: roles
-                .map(
-                  (role) => DropdownMenuItem(
-                    value: role,
-                    child: Text(
-                      role,
-                      style: TextStyle(fontSize: size.width * 0.04),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
+          _roleDropdown(size),
           SizedBox(height: size.height * 0.02),
-
-          Text(
-            "Start Date & Time",
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: size.width * 0.048,
-            ),
-          ),
-          SizedBox(height: size.height * 0.01),
-
-          TextFormField(
-            readOnly: true,
-            onTap: () => _selectStartDateTime(context),
-            decoration: InputDecoration(
-              prefixIcon: Icon(
-                Icons.calendar_today_outlined,
-                size: size.width * 0.075,
-              ),
-              labelText: "Select Start Date & Time",
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            controller: TextEditingController(
-              text: selectedDate == null
-                  ? ''
-                  : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year} ${selectedDate!.hour}:${selectedDate!.minute.toString().padLeft(2, '0')}",
-            ),
-          ),
-          SizedBox(height: size.height * 0.02),
-
-          Text(
-            "End Date & Time",
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: size.width * 0.048,
-            ),
-          ),
-          SizedBox(height: size.height * 0.01),
-
-          TextFormField(
-            readOnly: true,
-            onTap: () => _selectEndDateTime(context),
-            decoration: InputDecoration(
-              prefixIcon: Icon(Icons.access_time, size: size.width * 0.075),
-              labelText: "Select End Date & Time",
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            controller: TextEditingController(
-              text: endDate == null
-                  ? ''
-                  : "${endDate!.day}/${endDate!.month}/${endDate!.year} ${endDate!.hour}:${endDate!.minute.toString().padLeft(2, '0')}",
-            ),
-          ),
-          SizedBox(height: size.height * 0.02),
-
-          Text(
-            "Location",
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: size.width * 0.048,
-            ),
-          ),
-          SizedBox(height: size.height * 0.01),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  currentLocation ?? "Location not fetched",
-                  style: TextStyle(
-                    fontSize: size.width * 0.04,
-                    color: currentLocation == null ? Colors.grey : Colors.black,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
-                onPressed: _getCurrentLocation,
-              ),
-            ],
-          ),
-          SizedBox(height: size.height * 0.02),
-
-          Text(
-            "Description",
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: size.width * 0.048,
-            ),
-          ),
-          SizedBox(height: size.height * 0.01),
-
-          TextFormField(
-            controller: descriptionController,
-            maxLines: size.height > 700 ? 6 : 4,
-            decoration: InputDecoration(
-              hintText: "Add Description",
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          SizedBox(height: size.height * 0.03),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isFormValid
-                  ? () {
-                      _saveToProviders();
-                      setState(() => showResults = true);
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4B7D),
-                padding: EdgeInsets.symmetric(vertical: size.height * 0.018),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: Text(
-                "Find Vendors",
-                style: TextStyle(
-                  fontSize: size.width * 0.05,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
+          _dateSelectors(size),
+          _locationField(size),
+          _descriptionField(size),
+          _findVendorsButton(size),
         ],
       ),
     );
   }
+
+  // --- Helper UI widgets (keep same logic as your original) ---
+  Widget _roleDropdown(Size size) => DropdownButtonFormField<String>(
+    decoration: InputDecoration(
+      prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
+      labelText: "Select Role",
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(size.width * 0.03),
+      ),
+    ),
+    value: selectedRole,
+    onChanged: (value) => setState(() => selectedRole = value),
+    items: roles
+        .map(
+          (role) => DropdownMenuItem(
+            value: role,
+            child: Text(role, style: TextStyle(fontSize: size.width * 0.04)),
+          ),
+        )
+        .toList(),
+  );
+
+  Widget _dateSelectors(Size size) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Start Date
+        Text(
+          "Start Date & Time",
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: size.width * 0.048,
+          ),
+        ),
+        SizedBox(height: size.height * 0.01),
+        TextFormField(
+          readOnly: true,
+          onTap: () => _selectStartDateTime(context),
+          decoration: InputDecoration(
+            prefixIcon: Icon(
+              Icons.calendar_today_outlined,
+              size: size.width * 0.075,
+            ),
+            labelText: "Select Start Date & Time",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          controller: TextEditingController(
+            text: selectedDate == null
+                ? ''
+                : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year} ${selectedDate!.hour}:${selectedDate!.minute.toString().padLeft(2, '0')}",
+          ),
+        ),
+        SizedBox(height: size.height * 0.02),
+
+        // End Date
+        Text(
+          "End Date & Time",
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: size.width * 0.048,
+          ),
+        ),
+        SizedBox(height: size.height * 0.01),
+        TextFormField(
+          readOnly: true,
+          onTap: () => _selectEndDateTime(context),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.access_time, size: size.width * 0.075),
+            labelText: "Select End Date & Time",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          controller: TextEditingController(
+            text: endDate == null
+                ? ''
+                : "${endDate!.day}/${endDate!.month}/${endDate!.year} ${endDate!.hour}:${endDate!.minute.toString().padLeft(2, '0')}",
+          ),
+        ),
+        SizedBox(height: size.height * 0.02),
+      ],
+    );
+  }
+
+  Widget _locationField(Size size) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        "Location",
+        style: TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: size.width * 0.048,
+        ),
+      ),
+      SizedBox(height: size.height * 0.01),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              currentLocation ?? "Location not fetched",
+              style: TextStyle(
+                fontSize: size.width * 0.04,
+                color: currentLocation == null ? Colors.grey : Colors.black,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
+            onPressed: _getCurrentLocation,
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _descriptionField(Size size) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(height: size.height * 0.02),
+      Text(
+        "Description",
+        style: TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: size.width * 0.048,
+        ),
+      ),
+      SizedBox(height: size.height * 0.01),
+      TextFormField(
+        controller: descriptionController,
+        maxLines: size.height > 700 ? 6 : 4,
+        decoration: InputDecoration(
+          hintText: "Add Description",
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    ],
+  );
+
+  Widget _findVendorsButton(Size size) => Padding(
+    padding: EdgeInsets.only(top: size.height * 0.03),
+    child: SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: isFormValid
+            ? () {
+                _saveToProviders();
+                setState(() => showResults = true);
+              }
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF4B7D),
+          padding: EdgeInsets.symmetric(vertical: size.height * 0.018),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        child: Text(
+          "Find Vendors",
+          style: TextStyle(fontSize: size.width * 0.05, color: Colors.white),
+        ),
+      ),
+    ),
+  );
 }

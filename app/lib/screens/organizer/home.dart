@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:app/providers/navigation_provider.dart';
+import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
 import 'package:app/url.dart';
 import 'package:flutter/material.dart';
@@ -65,25 +66,25 @@ class _HomeState extends ConsumerState<Home> {
         body: json.encode({'name': name}),
       );
       if (response.statusCode == 201 || response.statusCode == 200) {
+        ref.read(projectNameProvider.notifier).state = name; 
         ref.read(navIndexProvider.notifier).state = 1;
-        Navigator.of(context).pop();
-        fetchProjects();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create project')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to create project')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   void showCreateProjectDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
+        // <-- use dialogCtx
         title: const Text('Create New Project'),
         content: TextField(
           controller: projectNameController,
@@ -92,7 +93,7 @@ class _HomeState extends ConsumerState<Home> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(ctx).pop();
+              Navigator.of(dialogCtx).pop(); // <-- use dialogCtx
             },
             child: const Text('Cancel'),
           ),
@@ -100,6 +101,7 @@ class _HomeState extends ConsumerState<Home> {
             onPressed: () {
               if (projectNameController.text.trim().isNotEmpty) {
                 createProject(projectNameController.text.trim());
+                Navigator.of(dialogCtx).pop(); // <-- move pop here
               }
             },
             child: const Text('Create'),
@@ -130,20 +132,27 @@ class _HomeState extends ConsumerState<Home> {
                           final project = projects[index];
                           return Card(
                             margin: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 16),
+                              vertical: 8,
+                              horizontal: 16,
+                            ),
                             elevation: 3,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                             child: ListTile(
                               title: Text(
                                 project['name'] ?? 'Unnamed Project',
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               subtitle: Text(
-                                  'Requests: ${project['sentRequests']?.length ?? 0}'),
-                              trailing: const Icon(Icons.arrow_forward_ios,
-                                  size: 18),
+                                'Requests: ${project['sentRequests']?.length ?? 0}',
+                              ),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 18,
+                              ),
                               onTap: () {
                                 // Handle project click
                               },
@@ -153,8 +162,10 @@ class _HomeState extends ConsumerState<Home> {
                       ),
               ),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -163,10 +174,13 @@ class _HomeState extends ConsumerState<Home> {
                     label: const Text('Create New Project'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      textStyle:
-                          const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
