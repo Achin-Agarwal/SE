@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:app/providers/role.dart';
 import 'package:app/providers/date.dart';
 import 'package:app/providers/location.dart';
@@ -16,7 +17,11 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? selectedRole;
   DateTime? selectedDate;
-  final TextEditingController locationController = TextEditingController();
+  DateTime? endDate;
+  String? currentLocation;
+  double? latitude;
+  double? longitude;
+
   final TextEditingController descriptionController = TextEditingController();
   bool showResults = false;
 
@@ -30,45 +35,123 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool get isFormValid =>
       selectedRole != null &&
       selectedDate != null &&
-      locationController.text.trim().isNotEmpty &&
+      endDate != null &&
+      latitude != null &&
+      longitude != null &&
       descriptionController.text.trim().isNotEmpty;
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectStartDateTime(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: selectedDate ?? DateTime.now(),
+      initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          selectedDate = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    locationController.addListener(_onFormChange);
-    descriptionController.addListener(_onFormChange);
+  Future<void> _selectEndDateTime(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? DateTime.now(),
+      firstDate: selectedDate ?? DateTime.now(),
+      lastDate: DateTime(2030),
+    );
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          endDate = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
   }
 
-  void _onFormChange() => setState(() {});
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
 
-  @override
-  void dispose() {
-    locationController.dispose();
-    descriptionController.dispose();
-    super.dispose();
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enable location services')),
+      );
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission denied')),
+        );
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location permission permanently denied')),
+      );
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    setState(() {
+      latitude = position.latitude;
+      longitude = position.longitude;
+      currentLocation =
+          "Lat: ${position.latitude.toStringAsFixed(5)}, Lng: ${position.longitude.toStringAsFixed(5)}";
+    });
   }
 
   void _saveToProviders() {
     ref.read(roleProvider.notifier).state = selectedRole;
-    ref.read(dateProvider.notifier).state = selectedDate;
-    ref.read(locationProvider.notifier).state = locationController.text.trim();
+    ref.read(dateProvider.notifier).state = {
+      'start': selectedDate,
+      'end': endDate,
+    };
+    ref.read(locationProvider.notifier).state = {
+      'latitude': latitude ?? 0.0,
+      'longitude': longitude ?? 0.0,
+    };
     ref.read(descriptionProvider.notifier).state = descriptionController.text
         .trim();
+  }
+
+  @override
+  void dispose() {
+    descriptionController.dispose();
+    super.dispose();
   }
 
   @override
@@ -106,7 +189,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           SizedBox(height: size.height * 0.02),
           Text(
-            "What are you looking for ?",
+            "What are you looking for?",
             style: TextStyle(
               fontSize: size.width * 0.055,
               fontWeight: FontWeight.w600,
@@ -114,15 +197,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.02),
 
-          // Dropdown
           DropdownButtonFormField<String>(
             decoration: InputDecoration(
               prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
               labelText: "Select Role",
-              labelStyle: TextStyle(
-                fontSize: size.width * 0.048,
-                fontWeight: FontWeight.w500,
-              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(size.width * 0.03),
               ),
@@ -143,16 +221,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.02),
 
-          // Date Picker
+          Text(
+            "Start Date & Time",
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: size.width * 0.048,
+            ),
+          ),
+          SizedBox(height: size.height * 0.01),
+
           TextFormField(
             readOnly: true,
-            onTap: () => _selectDate(context),
+            onTap: () => _selectStartDateTime(context),
             decoration: InputDecoration(
               prefixIcon: Icon(
                 Icons.calendar_today_outlined,
                 size: size.width * 0.075,
               ),
-              labelText: "Select Date",
+              labelText: "Select Start Date & Time",
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -160,24 +246,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             controller: TextEditingController(
               text: selectedDate == null
                   ? ''
-                  : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}",
+                  : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year} ${selectedDate!.hour}:${selectedDate!.minute.toString().padLeft(2, '0')}",
             ),
           ),
           SizedBox(height: size.height * 0.02),
 
-          // Location
+          Text(
+            "End Date & Time",
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: size.width * 0.048,
+            ),
+          ),
+          SizedBox(height: size.height * 0.01),
+
           TextFormField(
-            controller: locationController,
+            readOnly: true,
+            onTap: () => _selectEndDateTime(context),
             decoration: InputDecoration(
-              prefixIcon: Icon(
-                Icons.location_on_outlined,
-                size: size.width * 0.075,
-              ),
-              labelText: "Enter Location",
+              prefixIcon: Icon(Icons.access_time, size: size.width * 0.075),
+              labelText: "Select End Date & Time",
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
+            controller: TextEditingController(
+              text: endDate == null
+                  ? ''
+                  : "${endDate!.day}/${endDate!.month}/${endDate!.year} ${endDate!.hour}:${endDate!.minute.toString().padLeft(2, '0')}",
+            ),
+          ),
+          SizedBox(height: size.height * 0.02),
+
+          Text(
+            "Location",
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: size.width * 0.048,
+            ),
+          ),
+          SizedBox(height: size.height * 0.01),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  currentLocation ?? "Location not fetched",
+                  style: TextStyle(
+                    fontSize: size.width * 0.04,
+                    color: currentLocation == null ? Colors.grey : Colors.black,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
+                onPressed: _getCurrentLocation,
+              ),
+            ],
           ),
           SizedBox(height: size.height * 0.02),
 
@@ -190,7 +314,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.01),
 
-          // Description
           TextFormField(
             controller: descriptionController,
             maxLines: size.height > 700 ? 6 : 4,
@@ -203,13 +326,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           SizedBox(height: size.height * 0.03),
 
-          // Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: isFormValid
                   ? () {
-                      _saveToProviders(); // ✅ Save data to providers
+                      _saveToProviders();
                       setState(() => showResults = true);
                     }
                   : null,

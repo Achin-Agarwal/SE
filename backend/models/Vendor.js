@@ -15,9 +15,16 @@ const vendorSchema = new mongoose.Schema(
     },
 
     description: { type: String, required: true },
-    location: { type: String, required: true },
-    rating: { type: Number, default: 0 },
+    location: {
+      lat: { type: String, required: true },
+      lon: { type: String, required: true },
+    },
 
+    // 🖼️ new fields
+    profileImage: { type: String }, // store URL or local path
+    workImages: [{ type: String }], // multiple images
+
+    rating: { type: Number, default: 0 },
     receivedRequests: [
       { type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" },
     ],

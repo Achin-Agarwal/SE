@@ -9,24 +9,77 @@ import { generateToken } from "../utils/jwtFunct.js";
 import Vendor from "../models/Vendor.js";
 import VendorRequest from "../models/VendorRequest.js";
 import User from "../models/User.js";
+import { S3Client } from "@aws-sdk/client-s3"; // ✅ v3 import
+import multer from "multer";
+import multerS3 from "multer-s3";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+// ✅ Create S3 client (v3)
+const s3 = new S3Client({
+  endpoint: process.env.DO_SPACES_ENDPOINT, // e.g. "https://blr1.digitaloceanspaces.com"
+  region: "blr1",
+  credentials: {
+    accessKeyId: process.env.DO_SPACES_KEY,
+    secretAccessKey: process.env.DO_SPACES_SECRET,
+  },
+});
+
+// ✅ Multer-S3 now works with v3 client directly
+export const upload = multer({
+  storage: multerS3({
+    s3, // <-- v3 client
+    bucket: process.env.DO_SPACES_BUCKET,
+    acl: "public-read",
+    key: (req, file, cb) => {
+      cb(null, `vendors/${Date.now()}-${file.originalname}`);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+  }),
+}).fields([
+  { name: "profileImage", maxCount: 1 },
+  { name: "workImages", maxCount: 20 },
+]);
+
 
 const router = express.Router();
 router.post(
   "/register",
+  upload,
   safeHandler(async (req, res) => {
-    const parsed = vendorRegisterSchema.safeParse(req.body);
+    const {
+      name,
+      email,
+      password,
+      phone,
+      role,
+      description,
+      location,
+    } = req.body;
 
-    if (!parsed.success) {
-      const message =
-        parsed.error?.issues?.map((e) => e.message).join(", ") ||
-        "Validation failed";
-      return res.error(400, message, "VALIDATION_ERROR");
+    let parsedLocation = location;
+    if (typeof location === "string") {
+      try {
+        parsedLocation = JSON.parse(location);
+      } catch {
+        return res.error(400, "Invalid location format", "VALIDATION_ERROR");
+      }
     }
 
-    const { name, email, password, phone, role, description, location } =
-      parsed.data;
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !phone ||
+      !role ||
+      !description ||
+      !parsedLocation?.lat ||
+      !parsedLocation?.lon
+    ) {
+      return res.error(400, "Missing required fields", "VALIDATION_ERROR");
+    }
 
-    // Check for existing vendor
     const existingVendor = await Vendor.findOne({
       $or: [{ email }, { phone }],
     });
@@ -38,23 +91,32 @@ router.post(
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new vendor
+    const profileImageUrl = req.files?.profileImage
+      ? req.files.profileImage[0].location
+      : null;
+
+    const workImagesUrls =
+      req.files?.workImages?.map((file) => file.location) || [];
+
     const newVendor = new Vendor({
       name,
       email,
       phone,
       password: hashedPassword,
-      role,
+      role: role.toLowerCase(),
       description,
-      location,
+      location: {
+        lat: parsedLocation.lat.toString(),
+        lon: parsedLocation.lon.toString(),
+      },
+      profileImage: profileImageUrl,
+      workImages: workImagesUrls,
     });
 
     await newVendor.save();
 
-    // Generate JWT
     const token = generateToken({ id: newVendor._id, role: "vendor" });
 
     return res.success(201, "Vendor registered successfully", {
@@ -67,6 +129,8 @@ router.post(
         role: newVendor.role,
         description: newVendor.description,
         location: newVendor.location,
+        profileImage: newVendor.profileImage,
+        workImages: newVendor.workImages,
       },
     });
   })

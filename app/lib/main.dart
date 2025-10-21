@@ -3,33 +3,41 @@ import 'package:app/screens/vendor_dashboard.dart';
 import 'package:app/screens/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   SharedPreferences prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('auth_token');
   final role = prefs.getString('role');
-  runApp(ProviderScope(child: Shop(token: token,role: role)));
+
+  runApp(
+    ProviderScope(
+      child: Shop(token: token, role: role),
+    ),
+  );
 }
 
 class Shop extends StatelessWidget {
   final String? token;
   final String? role;
-  const Shop({super.key, required this.token, required this.role});
+
+  const Shop({super.key, this.token, this.role});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Shop Admin',
+      title: 'Event Flow',
       theme: ThemeData(
         visualDensity: VisualDensity.adaptivePlatformDensity,
         primaryColor: Colors.white,
         useMaterial3: true,
       ),
-      home: SplashScreen(token: token,role: role),
+      home: SplashScreen(token: token, role: role),
     );
   }
 }
@@ -51,20 +59,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
     Future.delayed(const Duration(seconds: 3), () {
       if (widget.token == null || widget.role == null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        Get.offAll(() => const LoginScreen());
       } else if (widget.role == 'user') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const Dashboard()),
-        );
+        Get.offAll(() => const Dashboard());
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const VendorDashboard()),
-        );
+        Get.offAll(() => const VendorDashboard());
       }
     });
   }

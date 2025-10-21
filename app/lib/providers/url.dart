@@ -1,3 +1,3 @@
 import 'package:flutter_riverpod/legacy.dart';
 
-final urlProvider = StateProvider<String>((ref) => "http://localhost:3000/");
+final urlProvider = StateProvider<String>((ref) => "https://achin-se-9kiip.ondigitalocean.app");

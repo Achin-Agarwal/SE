@@ -56,6 +56,7 @@ export const userRegisterSchema = z.object({
       message: "Please enter a valid phone number.",
     }),
 });
+
 export const vendorRegisterSchema = z.object({
   name: z
     .string({ message: "Name is required." })
@@ -76,7 +77,7 @@ export const vendorRegisterSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}|:;<>,.?/~\-=\[\]])[A-Za-z\d!@#$%^&*()_+{}|:;<>,.?/~\-=\[\]]{6,}$/,
       {
         message:
-          "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.",
+          "Password must contain uppercase, lowercase, number, and special character.",
       }
     ),
 
@@ -90,7 +91,7 @@ export const vendorRegisterSchema = z.object({
     }),
 
   role: z.enum(
-    ["Photographer", "Caterer", "Decorator", "Musician", "DJ", "Performer"],
+    ["photographer", "caterer", "decorator", "musician", "dj", "performer"],
     {
       message: "Please select a valid vendor role.",
     }
@@ -102,12 +103,21 @@ export const vendorRegisterSchema = z.object({
     .min(10, { message: "Description must be at least 10 characters long." })
     .max(500, { message: "Description must not exceed 500 characters." }),
 
-  location: z
-    .string({ message: "Location is required." })
-    .trim()
-    .min(3, { message: "Location must be at least 3 characters long." })
-    .max(100, { message: "Location must not exceed 100 characters." }),
+  location: z.object({
+    lat: z
+      .string({ message: "Latitude is required." })
+      .trim()
+      .min(3, { message: "Invalid latitude format." }),
+    lon: z
+      .string({ message: "Longitude is required." })
+      .trim()
+      .min(3, { message: "Invalid longitude format." }),
+  }),
+
+  profileImage: z.any().optional(),
+  workImages: z.any().optional(),
 });
+
 
 export const loginSchema = z.object({
   email: z

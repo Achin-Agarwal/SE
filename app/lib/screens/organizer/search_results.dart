@@ -36,9 +36,13 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       _hasError = false;
     });
 
+    final location = ref.read(locationProvider);
+    final lat = location['latitude'];
+    final lng = location['longitude'];
+
     try {
       final url =
-          "https://achin-se-9kiip.ondigitalocean.app/user/vendors/${widget.selectedRole}";
+          "https://achin-se-9kiip.ondigitalocean.app/user/vendors/${widget.selectedRole}?lat=$lat&lng=$lng";
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
@@ -82,12 +86,13 @@ class _SearchResultState extends ConsumerState<SearchResult> {
 
     final userId = ref.read(userIdProvider);
     final location = ref.read(locationProvider);
-    final eventDate = ref.read(dateProvider);
+    final dateMap = ref.read(dateProvider);
     final description = ref.read(descriptionProvider);
 
     if (userId == null ||
         location == null ||
-        eventDate == null ||
+        dateMap['start'] == null ||
+        dateMap['end'] == null ||
         description == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -97,15 +102,17 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       return;
     }
 
+    // ✅ Convert dates to ISO string
+    final startDate = (dateMap['start'] as DateTime).toIso8601String();
+    final endDate = (dateMap['end'] as DateTime).toIso8601String();
+
     final body = {
       "userId": userId,
       "vendors": selectedVendorIds,
       "role": widget.selectedRole,
       "location": location,
-      // 👇 Convert DateTime object to string (backend expects text)
-      "eventDate": eventDate is DateTime
-          ? eventDate.toIso8601String().split("T").first
-          : eventDate.toString(),
+      "startDate": startDate,
+      "endDate": endDate,
       "description": description,
     };
 
@@ -125,7 +132,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
           const SnackBar(content: Text("Requests sent successfully!")),
         );
 
-        // ✅ Move to next navIndex only on success
         ref.read(navIndexProvider.notifier).state = 1;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,9 +143,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error sending requests: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error sending requests: $e")),
+      );
     } finally {
       setState(() => _isPosting = false);
     }

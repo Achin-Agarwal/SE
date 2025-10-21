@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/username.dart';
 import 'package:app/providers/userid.dart';
+import 'package:app/providers/url.dart';
 import 'package:lottie/lottie.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -26,12 +27,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator'];
 
   Future<void> login() async {
+  final url=ref.read(urlProvider);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    const String apiUrl =
-        "https://achin-se-9kiip.ondigitalocean.app/vendor/login";
+    final String apiUrl = '$url/vendor/login';
 
     try {
       final response = await http.post(

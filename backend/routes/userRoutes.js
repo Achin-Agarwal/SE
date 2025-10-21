@@ -103,14 +103,31 @@ router.post(
   })
 );
 
-// Get vendors by role
 router.get(
   "/vendors/:role",
   safeHandler(async (req, res) => {
     try {
+      const { lat, lng } = req.query;
+
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "Latitude and longitude required" });
+      }
+
+      const radiusInKm = 10;
+      const earthRadiusInKm = 6378.1;
+
       const vendors = await Vendor.find({
         role: { $regex: new RegExp(`^${req.params.role}$`, "i") },
+        location: {
+          $geoWithin: {
+            $centerSphere: [
+              [parseFloat(lng), parseFloat(lat)],
+              radiusInKm / earthRadiusInKm,
+            ],
+          },
+        },
       });
+
       res.json(vendors);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -123,14 +140,37 @@ router.post(
   "/sendrequests",
   safeHandler(async (req, res) => {
     try {
-      const { userId, vendors, role, location, description, eventDate } =
-        req.body;
+      const {
+        userId,
+        vendors,
+        role,
+        location,
+        description,
+        startDateTime,
+        endDateTime,
+      } = req.body;
 
-      // Basic validation
       if (!userId || !Array.isArray(vendors) || vendors.length === 0) {
         return res.status(400).json({
           status: "error",
           message: "userId and vendors (array of IDs) are required",
+        });
+      }
+
+      if (!startDateTime || !endDateTime) {
+        return res.status(400).json({
+          status: "error",
+          message: "Both startDateTime and endDateTime are required",
+        });
+      }
+
+      const start = new Date(startDateTime);
+      const end = new Date(endDateTime);
+
+      if (end <= start) {
+        return res.status(400).json({
+          status: "error",
+          message: "endDateTime must be after startDateTime",
         });
       }
 
@@ -142,7 +182,8 @@ router.post(
             role,
             location,
             description,
-            eventDate,
+            startDateTime: start,
+            endDateTime: end,
           });
 
           await User.findByIdAndUpdate(userId, {
