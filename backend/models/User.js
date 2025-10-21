@@ -6,17 +6,22 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
   password: { type: String, required: true },
-  role: {
-    type: String,
-    required: true,
-    enum: ["user"],
-  },
+  role: { type: String, required: true, enum: ["user"] },
   profileImage: { type: String },
-  sentRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" }],
-  
+
+  projects: [
+    {
+      name: { type: String, required: true },
+      sentRequests: [
+        {
+          vendor: { type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" },
+          role: { type: String, required: true },
+        },
+      ],
+    },
+  ],
 }, { timestamps: true });
 
-// Password hashing
 userSchema.pre("save", async function(next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);

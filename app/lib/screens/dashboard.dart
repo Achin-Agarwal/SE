@@ -2,12 +2,12 @@ import 'package:app/providers/navigation_provider.dart';
 import 'package:app/screens/login.dart';
 import 'package:app/screens/organizer/cart.dart';
 import 'package:app/screens/organizer/bookings.dart';
+import 'package:app/screens/organizer/home.dart';
 import 'package:app/screens/organizer/profile.dart';
 import 'package:app/screens/organizer/search_screen.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/providers/username.dart';
 
@@ -20,6 +20,7 @@ class Dashboard extends ConsumerWidget {
     final size = MediaQuery.of(context).size;
 
     final screens = [
+      const Home(),
       const SearchScreen(),
       const Cart(),
       const Bookings(),
@@ -97,6 +98,7 @@ class Dashboard extends ConsumerWidget {
         backgroundColor: Colors.white,
         animationDuration: const Duration(milliseconds: 300),
         items: <Widget>[
+          Icon(Icons.home, size: size.height * 0.04, color: Colors.pink),
           Icon(Icons.search, size: size.height * 0.04, color: Colors.pink),
           Icon(
             Icons.shopping_cart,

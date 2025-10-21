@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'package:app/screens/dashboard.dart';
 import 'package:app/screens/signup.dart';
 import 'package:app/screens/vendor_dashboard.dart';
+import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/username.dart';
 import 'package:app/providers/userid.dart';
-import 'package:app/providers/url.dart';
 import 'package:lottie/lottie.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -28,16 +28,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator'];
 
   Future<void> login() async {
-    final url = ref.read(urlProvider);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    final String apiUrl = '$url/vendor/login';
-
     try {
       final response = await http.post(
-        Uri.parse(apiUrl),
+        Uri.parse('$url/vendor/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           "email": _emailController.text.trim(),

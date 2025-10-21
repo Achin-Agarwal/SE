@@ -171,16 +171,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                         const SizedBox(height: 20),
                         if (controller.role.value != 'User') ...[
-  TextFormField(
-    controller: controller.description,
-    decoration: const InputDecoration(
-      labelText: "Description",
-      suffixIcon: Icon(Icons.description),
-    ),
-  ),
-  const SizedBox(height: 20),
-],
-
+                          TextFormField(
+                            controller: controller.description,
+                            decoration: const InputDecoration(
+                              labelText: "Description",
+                              suffixIcon: Icon(Icons.description),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
 
                         if (showExtra) ...[
                           // Work Images

@@ -38,11 +38,11 @@ class _SearchResultState extends ConsumerState<SearchResult> {
 
     final location = ref.read(locationProvider);
     final lat = location['latitude'];
-    final lng = location['longitude'];
+    final lon = location['longitude'];
 
     try {
       final url =
-          "https://achin-se-9kiip.ondigitalocean.app/user/vendors/${widget.selectedRole}?lat=$lat&lng=$lng";
+          "https://achin-se-9kiip.ondigitalocean.app/user/vendors/${widget.selectedRole}?lat=$lat&lon=$lon";
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
@@ -132,7 +132,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
           const SnackBar(content: Text("Requests sent successfully!")),
         );
 
-        ref.read(navIndexProvider.notifier).state = 1;
+        ref.read(navIndexProvider.notifier).state = 2;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

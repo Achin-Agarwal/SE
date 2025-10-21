@@ -140,31 +140,83 @@ router.post(
 );
 
 router.get(
+  "/project/:userId",
+  safeHandler(async (req, res) => {
+    const user = await User.findById(req.params.userId).populate({
+      path: "projects.sentRequests.vendor",
+      model: "VendorRequest",
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user.projects);
+  })
+);
+
+
+router.post(
+  "/project/:userId",
+  safeHandler(async (req, res) => {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: "Project name is required" });
+    }
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    user.projects.push({ name, sentRequests: [] });
+    await user.save();
+    res.status(201).json({ message: "Project created successfully", project: user.projects[user.projects.length - 1] });
+  })
+);
+
+router.get(
   "/vendors/:role",
   safeHandler(async (req, res) => {
     try {
-      const { lat, lng } = req.query;
+      const { lat, lon } = req.query;
 
-      if (!lat || !lng) {
+      if (!lat || !lon) {
         return res.status(400).json({ error: "Latitude and longitude required" });
       }
 
+      const userLat = parseFloat(lat);
+      const userLon = parseFloat(lon);
       const radiusInKm = 10;
-      const earthRadiusInKm = 6378.1;
 
       const vendors = await Vendor.find({
         role: { $regex: new RegExp(`^${req.params.role}$`, "i") },
-        location: {
-          $geoWithin: {
-            $centerSphere: [
-              [parseFloat(lng), parseFloat(lat)],
-              radiusInKm / earthRadiusInKm,
-            ],
-          },
-        },
       });
 
-      res.json(vendors);
+      function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+      
+      const nearbyVendors = vendors.filter((vendor) => {
+        if (!vendor.location) return false;
+        const distance = getDistance(
+          userLat,
+          userLon,
+          vendor.location.lat,
+          vendor.location.lon
+        );
+        console.log(`Vendor ${vendor._id} is ${distance.toFixed(2)} km away`);
+        return distance <= radiusInKm;
+      });
+
+      res.json(nearbyVendors);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

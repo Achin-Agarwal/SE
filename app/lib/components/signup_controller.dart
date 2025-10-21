@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:app/screens/login.dart';
+import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:app/providers/url.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
@@ -163,7 +163,6 @@ class SignUpController extends GetxController {
         email.text.isEmpty ||
         password.text.isEmpty ||
         phone.text.isEmpty ||
-        description.text.isEmpty ||
         role.value.isEmpty ||
         profileImage.value == null) {
       return false;
@@ -181,16 +180,17 @@ class SignUpController extends GetxController {
     if (!formKey.currentState!.validate()) return;
 
     try {
-      final String apiUrl =
-          'https://achin-se-9kiip.ondigitalocean.app/vendor/register';
+      final String apiUrl = role.value == 'User'
+          ? '$url/user/register'
+          : '$url/vendor/register';
       Get.snackbar(
         'Uploading',
         'Please wait while we upload your data...',
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      var url = Uri.parse(apiUrl);
-      var request = http.MultipartRequest('POST', url);
+      var apiUri = Uri.parse(apiUrl);
+      var request = http.MultipartRequest('POST', apiUri);
 
       request.fields.addAll({
         'name': name.text,
