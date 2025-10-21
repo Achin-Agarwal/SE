@@ -9,7 +9,7 @@ import { generateToken } from "../utils/jwtFunct.js";
 import Vendor from "../models/Vendor.js";
 import VendorRequest from "../models/VendorRequest.js";
 import User from "../models/User.js";
-import { S3Client } from "@aws-sdk/client-s3"; // ✅ v3 import
+import { S3Client } from "@aws-sdk/client-s3";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import dotenv from "dotenv";
@@ -57,7 +57,6 @@ router.post(
       description,
       location,
     } = req.body;
-    console.log("Register body:", req.body);
 
     let parsedLocation = location;
     if (typeof location === "string") {

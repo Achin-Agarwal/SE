@@ -55,6 +55,8 @@ export const userRegisterSchema = z.object({
     .regex(/^\+?[0-9]{10,15}$/, {
       message: "Please enter a valid phone number.",
     }),
+    profileImage: z.any().optional(),
+    role: z.literal("user"),
 });
 
 export const vendorRegisterSchema = z.object({

@@ -20,9 +20,8 @@ const vendorSchema = new mongoose.Schema(
       lon: { type: String, required: true },
     },
 
-    // 🖼️ new fields
-    profileImage: { type: String }, // store URL or local path
-    workImages: [{ type: String }], // multiple images
+    profileImage: { type: String },
+    workImages: [{ type: String }],
 
     rating: { type: Number, default: 0 },
     receivedRequests: [

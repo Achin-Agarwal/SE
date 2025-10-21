@@ -155,7 +155,7 @@ class SignUpController extends GetxController {
     latitude.value = position.latitude;
     longitude.value = position.longitude;
     currentLocation.value =
-        "Lat: ${position.latitude.toStringAsFixed(5)}, Lng: ${position.longitude.toStringAsFixed(5)}";
+        "Lat: ${position.latitude}, Lng: ${position.longitude}";
   }
 
   bool isFormComplete() {
@@ -181,7 +181,8 @@ class SignUpController extends GetxController {
     if (!formKey.currentState!.validate()) return;
 
     try {
-      final String apiUrl = 'https://achin-se-9kiip.ondigitalocean.app/vendor/register';
+      final String apiUrl =
+          'https://achin-se-9kiip.ondigitalocean.app/vendor/register';
       Get.snackbar(
         'Uploading',
         'Please wait while we upload your data...',
@@ -199,8 +200,7 @@ class SignUpController extends GetxController {
         'description': description.text,
         // 'gender': gender.value,
         'role': role.value,
-        'location':
-            'Lat: ${latitude.value.toString}, Lng: ${longitude.value.toString}',
+        'location': '{"lat": ${latitude.value}, "lon": ${longitude.value}}',
       });
 
       if (profileImage.value != null) {

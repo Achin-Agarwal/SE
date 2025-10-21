@@ -10,28 +10,62 @@ import User from "../models/User.js";
 import Vendor from "../models/Vendor.js";
 import VendorRequest from "../models/VendorRequest.js";
 import { ObjectId } from "mongodb";
+import { S3Client } from "@aws-sdk/client-s3";
+import multer from "multer";
+import multerS3 from "multer-s3";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const s3 = new S3Client({
+  endpoint: process.env.DO_SPACES_ENDPOINT,
+  region: "blr1",
+  credentials: {
+    accessKeyId: process.env.DO_SPACES_KEY,
+    secretAccessKey: process.env.DO_SPACES_SECRET,
+  },
+});
+
+export const upload = multer({
+  storage: multerS3({
+    s3,
+    bucket: process.env.DO_SPACES_BUCKET,
+    acl: "public-read",
+    key: (req, file, cb) => {
+      cb(null, `users/${Date.now()}-${file.originalname}`);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+  }),
+}).fields([
+  { name: "profileImage", maxCount: 1 },
+]);
 
 const router = express.Router();
 router.post(
   "/register",
+  upload,
   safeHandler(async (req, res) => {
-    // Validate input using Zod
-    const parsed = userRegisterSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.error(
-        400,
-        parsed.error.issues.map((e) => e.message).join(", "),
-        "VALIDATION_ERROR"
-      );
+    const {
+      name,
+      email,
+      password,
+      phone,
+      role
+    } = req.body;
+
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !phone ||
+      !role
+    ) {
+      return res.error(400, "Missing required fields", "VALIDATION_ERROR");
     }
 
-    const { name, email, password, phone } = parsed.data;
-
-    // Check for existing user
     const existingUser = await User.findOne({
       $or: [{ email }, { phone }],
     });
-
     if (existingUser) {
       return res.error(
         409,
@@ -40,24 +74,25 @@ router.post(
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
+    const profileImageUrl = req.files?.profileImage
+      ? req.files.profileImage[0].location
+      : null;
+
     const newUser = new User({
       name,
       email,
-      password: hashedPassword,
       phone,
-      role: "user", // default role for normal users
+      password: hashedPassword,
+      role: role.toLowerCase(),
+      profileImage: profileImageUrl
     });
 
     await newUser.save();
 
-    // Generate JWT token
-    const token = generateToken({ id: newUser._id, role: newUser.role });
+    const token = generateToken({ id: newUser._id, role: "user" });
 
-    // Send response
     return res.success(201, "User registered successfully", {
       token,
       user: {
@@ -66,6 +101,7 @@ router.post(
         email: newUser.email,
         phone: newUser.phone,
         role: newUser.role,
+        profileImage: newUser.profileImage,
       },
     });
   })
