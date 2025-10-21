@@ -57,6 +57,7 @@ router.post(
       description,
       location,
     } = req.body;
+    console.log("Register body:", req.body);
 
     let parsedLocation = location;
     if (typeof location === "string") {

@@ -1,21 +1,23 @@
 import 'dart:io';
+import 'package:app/screens/login.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
+import 'package:app/providers/url.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 class SignUpController extends GetxController {
   final formKey = GlobalKey<FormState>();
   var profileImage = Rx<File?>(null);
   var workImages = <File>[].obs;
-  final fullName = TextEditingController();
-  final lastName = TextEditingController();
+  final name = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
   final confirmPassword = TextEditingController();
   final phone = TextEditingController();
-  var gender = ''.obs;
+  final description = TextEditingController();
+  // var gender = ''.obs;
   var role = ''.obs;
 
   // Location
@@ -40,8 +42,9 @@ class SignUpController extends GetxController {
                 leading: const Icon(Icons.camera_alt, color: Colors.pinkAccent),
                 title: const Text('Take a photo'),
                 onTap: () async {
-                  final picked =
-                      await picker.pickImage(source: ImageSource.camera);
+                  final picked = await picker.pickImage(
+                    source: ImageSource.camera,
+                  );
                   if (picked != null) {
                     profileImage.value = File(picked.path);
                   }
@@ -49,12 +52,15 @@ class SignUpController extends GetxController {
                 },
               ),
               ListTile(
-                leading:
-                    const Icon(Icons.photo_library, color: Colors.purpleAccent),
+                leading: const Icon(
+                  Icons.photo_library,
+                  color: Colors.purpleAccent,
+                ),
                 title: const Text('Choose from gallery'),
                 onTap: () async {
-                  final picked =
-                      await picker.pickImage(source: ImageSource.gallery);
+                  final picked = await picker.pickImage(
+                    source: ImageSource.gallery,
+                  );
                   if (picked != null) {
                     profileImage.value = File(picked.path);
                   }
@@ -82,8 +88,9 @@ class SignUpController extends GetxController {
                 leading: const Icon(Icons.camera_alt, color: Colors.pinkAccent),
                 title: const Text('Take a photo'),
                 onTap: () async {
-                  final picked =
-                      await picker.pickImage(source: ImageSource.camera);
+                  final picked = await picker.pickImage(
+                    source: ImageSource.camera,
+                  );
                   if (picked != null) {
                     workImages.add(File(picked.path));
                   }
@@ -91,8 +98,10 @@ class SignUpController extends GetxController {
                 },
               ),
               ListTile(
-                leading:
-                    const Icon(Icons.photo_library, color: Colors.purpleAccent),
+                leading: const Icon(
+                  Icons.photo_library,
+                  color: Colors.purpleAccent,
+                ),
                 title: const Text('Choose from gallery'),
                 onTap: () async {
                   final pickedList = await picker.pickMultiImage();
@@ -150,13 +159,11 @@ class SignUpController extends GetxController {
   }
 
   bool isFormComplete() {
-    if (fullName.text.isEmpty ||
-        lastName.text.isEmpty ||
+    if (name.text.isEmpty ||
         email.text.isEmpty ||
         password.text.isEmpty ||
-        confirmPassword.text.isEmpty ||
         phone.text.isEmpty ||
-        gender.value.isEmpty ||
+        description.text.isEmpty ||
         role.value.isEmpty ||
         profileImage.value == null) {
       return false;
@@ -170,58 +177,75 @@ class SignUpController extends GetxController {
     return true;
   }
 
-  Future<void> submitForm() async {
+  Future<void> submitForm(BuildContext context) async {
     if (!formKey.currentState!.validate()) return;
 
     try {
-      Get.snackbar('Uploading', 'Please wait while we upload your data...',
-          snackPosition: SnackPosition.BOTTOM);
+      final String apiUrl = 'https://achin-se-9kiip.ondigitalocean.app/vendor/register';
+      Get.snackbar(
+        'Uploading',
+        'Please wait while we upload your data...',
+        snackPosition: SnackPosition.BOTTOM,
+      );
 
-      var url = Uri.parse('https://your-backend-url.com/api/signup');
+      var url = Uri.parse(apiUrl);
       var request = http.MultipartRequest('POST', url);
 
       request.fields.addAll({
-        'fullName': fullName.text,
-        'lastName': lastName.text,
+        'name': name.text,
         'email': email.text,
         'password': password.text,
-        'confirmPassword': confirmPassword.text,
         'phone': phone.text,
-        'gender': gender.value,
+        'description': description.text,
+        // 'gender': gender.value,
         'role': role.value,
-        'latitude': latitude.value.toString(),
-        'longitude': longitude.value.toString(),
+        'location':
+            'Lat: ${latitude.value.toString}, Lng: ${longitude.value.toString}',
       });
 
       if (profileImage.value != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-          'profileImage',
-          profileImage.value!.path,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profileImage',
+            profileImage.value!.path,
+          ),
+        );
       }
 
       for (var img in workImages) {
-        request.files.add(await http.MultipartFile.fromPath(
-          'workImages',
-          img.path,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath('workImages', img.path),
+        );
       }
 
       var response = await request.send();
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         var responseBody = await response.stream.bytesToString();
-        Get.snackbar('Success', 'Signup successful!',
-            snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'Success',
+          'Signup successful!',
+          snackPosition: SnackPosition.BOTTOM,
+        );
         print('Response: $responseBody');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
       } else {
         var error = await response.stream.bytesToString();
-        Get.snackbar('Error', 'Signup failed: $error',
-            snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'Error',
+          'Signup failed: $error',
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } catch (e) {
-      Get.snackbar('Error', 'Something went wrong: $e',
-          snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'Error',
+        'Something went wrong: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 }

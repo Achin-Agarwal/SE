@@ -27,7 +27,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       backgroundColor: const Color(0xFFF9F5F5),
       body: SafeArea(
         child: Obx(() {
-          bool showExtra = controller.role.value.isNotEmpty &&
+          bool showExtra =
+              controller.role.value.isNotEmpty &&
               controller.role.value != 'User';
 
           bool isEnabled = controller.isFormComplete();
@@ -88,11 +89,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               backgroundColor: Colors.grey[300],
                               backgroundImage:
                                   controller.profileImage.value != null
-                                      ? FileImage(controller.profileImage.value!)
-                                      : null,
+                                  ? FileImage(controller.profileImage.value!)
+                                  : null,
                               child: controller.profileImage.value == null
-                                  ? const Icon(Icons.camera_alt,
-                                      color: Colors.white)
+                                  ? const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                    )
                                   : null,
                             ),
                           ),
@@ -100,45 +103,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         const SizedBox(height: 20),
 
                         TextFormField(
-                          controller: controller.fullName,
-                          decoration:
-                              const InputDecoration(labelText: "Full Name"),
-                        ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: controller.lastName,
-                          decoration:
-                              const InputDecoration(labelText: "Last Name"),
+                          controller: controller.name,
+                          decoration: const InputDecoration(
+                            labelText: "Full Name",
+                          ),
                         ),
                         const SizedBox(height: 10),
 
+                        // DropdownButtonFormField<String>(
+                        //   decoration:
+                        //       const InputDecoration(labelText: "Gender"),
+                        //   items: ["Male", "Female", "Other"]
+                        //       .map((e) =>
+                        //           DropdownMenuItem(value: e, child: Text(e)))
+                        //       .toList(),
+                        //   onChanged: (val) {
+                        //     controller.gender.value = val ?? '';
+                        //     setState(() {});
+                        //   },
+                        // ),
+                        // const SizedBox(height: 10),
                         DropdownButtonFormField<String>(
-                          decoration:
-                              const InputDecoration(labelText: "Gender"),
-                          items: ["Male", "Female", "Other"]
-                              .map((e) =>
-                                  DropdownMenuItem(value: e, child: Text(e)))
-                              .toList(),
-                          onChanged: (val) {
-                            controller.gender.value = val ?? '';
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 10),
-
-                        DropdownButtonFormField<String>(
-                          decoration:
-                              const InputDecoration(labelText: "Role"),
-                          items: [
-                            "User",
-                            "Photographer",
-                            "Caterer",
-                            "DJ",
-                            "Decorator"
-                          ]
-                              .map((e) =>
-                                  DropdownMenuItem(value: e, child: Text(e)))
-                              .toList(),
+                          decoration: const InputDecoration(labelText: "Role"),
+                          items:
+                              [
+                                    "User",
+                                    "Photographer",
+                                    "Caterer",
+                                    "DJ",
+                                    "Decorator",
+                                  ]
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
                           onChanged: (val) {
                             controller.role.value = val ?? '';
                             setState(() {});
@@ -148,23 +149,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                         TextFormField(
                           controller: controller.email,
-                          decoration:
-                              const InputDecoration(labelText: "Email"),
+                          decoration: const InputDecoration(labelText: "Email"),
                         ),
                         const SizedBox(height: 10),
 
                         TextFormField(
                           controller: controller.password,
-                          decoration:
-                              const InputDecoration(labelText: "Password"),
-                          obscureText: true,
-                        ),
-                        const SizedBox(height: 10),
-
-                        TextFormField(
-                          controller: controller.confirmPassword,
                           decoration: const InputDecoration(
-                              labelText: "Confirm Password"),
+                            labelText: "Password",
+                          ),
                           obscureText: true,
                         ),
                         const SizedBox(height: 10),
@@ -177,6 +170,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+                        TextFormField(
+                          controller: controller.description,
+                          decoration: const InputDecoration(
+                            labelText: "Description",
+                            suffixIcon: Icon(Icons.description),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
 
                         if (showExtra) ...[
                           // Work Images
@@ -186,7 +187,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               const Text(
                                 "Work Images",
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                               const SizedBox(height: 10),
                               Obx(
@@ -199,8 +202,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         alignment: Alignment.topRight,
                                         children: [
                                           ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
                                             child: Image.file(
                                               file,
                                               width: 80,
@@ -214,9 +218,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                             child: const CircleAvatar(
                                               radius: 10,
                                               backgroundColor: Colors.black54,
-                                              child: Icon(Icons.close,
-                                                  size: 12,
-                                                  color: Colors.white),
+                                              child: Icon(
+                                                Icons.close,
+                                                size: 12,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -230,8 +236,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         height: 80,
                                         decoration: BoxDecoration(
                                           color: Colors.grey[300],
-                                          borderRadius:
-                                              BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         child: const Icon(
                                           Icons.add_a_photo,
@@ -247,28 +254,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(height: 20),
 
                           // Location Section
-                          Obx(() => Column(
-                                children: [
-                                  Text(
-                                    controller.currentLocation.value.isEmpty
-                                        ? "No location selected"
-                                        : controller.currentLocation.value,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: () =>
-                                        controller.getCurrentLocation(context),
-                                    icon: const Icon(Icons.location_on),
-                                    label: const Text("Get Current Location"),
-                                  ),
-                                ],
-                              )),
+                          Obx(
+                            () => Column(
+                              children: [
+                                Text(
+                                  controller.currentLocation.value.isEmpty
+                                      ? "No location selected"
+                                      : controller.currentLocation.value,
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () =>
+                                      controller.getCurrentLocation(context),
+                                  icon: const Icon(Icons.location_on),
+                                  label: const Text("Get Current Location"),
+                                ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 20),
                         ],
 
                         ElevatedButton(
                           onPressed: isEnabled
-                              ? () => controller.submitForm()
+                              ? () => controller.submitForm(context)
                               : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFE57373),
@@ -276,8 +285,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           child: const Text(
                             "Sign Up",
-                            style:
-                                TextStyle(color: Colors.white, fontSize: 18),
+                            style: TextStyle(color: Colors.white, fontSize: 18),
                           ),
                         ),
                         const SizedBox(height: 60),

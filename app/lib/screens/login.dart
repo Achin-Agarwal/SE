@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:app/screens/dashboard.dart';
+import 'package:app/screens/signup.dart';
 import 'package:app/screens/vendor_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -27,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator'];
 
   Future<void> login() async {
-  final url=ref.read(urlProvider);
+    final url = ref.read(urlProvider);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -237,9 +238,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don’t have an account? "),
+                  const Text("Don't have an account? "),
                   GestureDetector(
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SignUpScreen(),
+                        ),
+                      );
+                    },
                     child: const Text(
                       "Sign Up",
                       style: TextStyle(
