@@ -261,6 +261,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _saveToProviders() {
+    print("Saving to providers:");
+    print("Selected Project: $selectedProject");
     ref.read(projectNameProvider.notifier).state =
         selectedProject?['name'] ?? '';
     ref.read(projectIdProvider.notifier).state = selectedProject?['id'] ?? '';
@@ -269,6 +271,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       'start': selectedDate,
       'end': endDate,
     };
+    print("Project ID stored: ${ref.read(projectIdProvider)}");
+    print("Project Name stored: ${ref.read(projectNameProvider)}");
     ref.read(locationProvider.notifier).state = {
       'latitude': latitude ?? 0.0,
       'longitude': longitude ?? 0.0,

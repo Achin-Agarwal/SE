@@ -8,7 +8,7 @@ import 'package:app/providers/userid.dart';
 import 'package:app/providers/location.dart';
 import 'package:app/providers/date.dart';
 import 'package:app/providers/description.dart';
-import 'package:app/providers/projectid.dart';
+import 'package:app/providers/projectId.dart';
 
 class SearchResult extends ConsumerStatefulWidget {
   final String? selectedRole;
@@ -97,13 +97,13 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     }
 
     final userId = ref.read(userIdProvider);
-    final projectId = ref.read(projectIdProvider); // ✅ get projectId here
+    final projectId = ref.read(projectIdProvider);
     final location = ref.read(locationProvider);
     final dateMap = ref.read(dateProvider);
     final description = ref.read(descriptionProvider);
 
     if (userId == null ||
-        projectId == null || // ✅ ensure it's not null
+        projectId == null ||
         location == null ||
         dateMap['start'] == null ||
         dateMap['end'] == null ||
@@ -135,6 +135,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     setState(() => _isPosting = true);
 
     try {
+      print("Sending request body: $body");
       final response = await http.post(
         Uri.parse(
           "https://achin-se-9kiip.ondigitalocean.app/user/sendrequests",

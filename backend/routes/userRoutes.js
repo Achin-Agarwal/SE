@@ -36,30 +36,16 @@ export const upload = multer({
     },
     contentType: multerS3.AUTO_CONTENT_TYPE,
   }),
-}).fields([
-  { name: "profileImage", maxCount: 1 },
-]);
+}).fields([{ name: "profileImage", maxCount: 1 }]);
 
 const router = express.Router();
 router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
-    const {
-      name,
-      email,
-      password,
-      phone,
-      role
-    } = req.body;
+    const { name, email, password, phone, role } = req.body;
 
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !phone ||
-      !role
-    ) {
+    if (!name || !email || !password || !phone || !role) {
       return res.error(400, "Missing required fields", "VALIDATION_ERROR");
     }
 
@@ -86,7 +72,7 @@ router.post(
       phone,
       password: hashedPassword,
       role: role.toLowerCase(),
-      profileImage: profileImageUrl
+      profileImage: profileImageUrl,
     });
 
     await newUser.save();
@@ -155,7 +141,6 @@ router.get(
   })
 );
 
-
 router.post(
   "/project/:userId",
   safeHandler(async (req, res) => {
@@ -169,7 +154,12 @@ router.post(
     }
     user.projects.push({ name, sentRequests: [] });
     await user.save();
-    res.status(201).json({ message: "Project created successfully", project: user.projects[user.projects.length - 1] });
+    res
+      .status(201)
+      .json({
+        message: "Project created successfully",
+        project: user.projects[user.projects.length - 1],
+      });
   })
 );
 
@@ -180,7 +170,9 @@ router.get(
       const { lat, lon } = req.query;
 
       if (!lat || !lon) {
-        return res.status(400).json({ error: "Latitude and longitude required" });
+        return res
+          .status(400)
+          .json({ error: "Latitude and longitude required" });
       }
 
       const userLat = parseFloat(lat);
@@ -292,23 +284,29 @@ router.post(
       // 🧩 Create requests for each vendor
       const requests = await Promise.all(
         vendors.map(async (vendorId) => {
+          const formattedLocation = {
+            type: "Point",
+            coordinates: [
+              location.longitude, // longitude first
+              location.latitude, // latitude second
+            ],
+          };
+
           const request = await VendorRequest.create({
             user: userId,
             vendor: vendorId,
             role,
-            location,
+            location: formattedLocation,
             description,
             startDateTime: start,
             endDateTime: end,
-            project: projectId, // optional, but good for tracking
+            project: projectId,
           });
 
-          // Add request to vendor’s received list
           await Vendor.findByIdAndUpdate(vendorId, {
             $push: { receivedRequests: request._id },
           });
 
-          // Add request to this specific project's sentRequests
           project.sentRequests.push({
             vendor: request._id,
             role: role,
