@@ -335,6 +335,63 @@ router.post(
   })
 );
 
+router.post(
+  "/projectroles",
+  safeHandler(async (req, res) => {
+    try {
+      const { userId, projectId } = req.body;
+
+      // 🧩 Validate input
+      if (!userId || !projectId) {
+        return res.status(400).json({
+          status: "error",
+          message: "userId and projectId are required",
+        });
+      }
+
+      // 🧩 Find the user
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        });
+      }
+
+      // 🧩 Find the project inside user's projects array
+      const project = user.projects.id(projectId);
+      if (!project) {
+        return res.status(404).json({
+          status: "error",
+          message: "Project not found for this user",
+        });
+      }
+
+      // 🧩 Extract all roles from sentRequests inside that project
+      const roles = project.sentRequests.map((r) => r.role);
+
+      // 🧩 Remove duplicates (optional)
+      const uniqueRoles = [...new Set(roles)];
+
+      return res.status(200).json({
+        status: "success",
+        message: "Roles fetched successfully",
+        projectName: project.name,
+        totalRoles: uniqueRoles.length,
+        roles: uniqueRoles,
+      });
+    } catch (err) {
+      console.error("Error in /projectroles:", err);
+      return res.status(500).json({
+        status: "error",
+        message: "Failed to fetch project roles",
+        error: err.message,
+      });
+    }
+  })
+);
+
+
 // Get all sent requests by a user
 router.get(
   "/:userId/requests",
