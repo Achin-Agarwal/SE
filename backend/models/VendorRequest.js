@@ -13,6 +13,12 @@ const vendorRequestSchema = new mongoose.Schema(
       required: true,
     },
 
+    project: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User.projects", 
+      required: true,
+    },
+
     role: { type: String, required: true },
 
     location: {
@@ -22,14 +28,13 @@ const vendorRequestSchema = new mongoose.Schema(
         default: "Point",
       },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number],
         required: true,
       },
     },
 
     description: { type: String, required: true },
 
-    // ✅ Replaced single eventDate with startDateTime and endDateTime
     startDateTime: {
       type: Date,
       required: true,
@@ -62,7 +67,6 @@ const vendorRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ For location-based queries
 vendorRequestSchema.index({ location: "2dsphere" });
 
 export default mongoose.model("VendorRequest", vendorRequestSchema);

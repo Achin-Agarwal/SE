@@ -8,6 +8,7 @@ import 'package:app/providers/userid.dart';
 import 'package:app/providers/location.dart';
 import 'package:app/providers/date.dart';
 import 'package:app/providers/description.dart';
+import 'package:app/providers/projectid.dart';
 
 class SearchResult extends ConsumerStatefulWidget {
   final String? selectedRole;
@@ -96,34 +97,38 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     }
 
     final userId = ref.read(userIdProvider);
+    final projectId = ref.read(projectIdProvider); // ✅ get projectId here
     final location = ref.read(locationProvider);
     final dateMap = ref.read(dateProvider);
     final description = ref.read(descriptionProvider);
 
     if (userId == null ||
+        projectId == null || // ✅ ensure it's not null
         location == null ||
         dateMap['start'] == null ||
         dateMap['end'] == null ||
         description == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Missing event details. Please fill them first."),
+          content: Text(
+            "Missing project or event details. Please fill them first.",
+          ),
         ),
       );
       return;
     }
 
-    // ✅ Convert dates to ISO string
     final startDate = (dateMap['start'] as DateTime).toIso8601String();
     final endDate = (dateMap['end'] as DateTime).toIso8601String();
 
     final body = {
       "userId": userId,
+      "projectId": projectId,
       "vendors": selectedVendorIds,
       "role": widget.selectedRole,
       "location": location,
-      "startDate": startDate,
-      "endDate": endDate,
+      "startDateTime": startDate,
+      "endDateTime": endDate,
       "description": description,
     };
 
@@ -142,7 +147,6 @@ class _SearchResultState extends ConsumerState<SearchResult> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Requests sent successfully!")),
         );
-
         ref.read(navIndexProvider.notifier).state = 2;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

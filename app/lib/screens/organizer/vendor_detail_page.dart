@@ -76,8 +76,6 @@ class VendorDetailCard extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Vendor Info Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -186,7 +184,7 @@ class VendorDetailCard extends StatelessWidget {
               height:
                   (vendor["workImages"]?.length ?? 0) /
                   3 *
-                  (size.width * 0.3 + 8),
+                  (size.width * 0.5 + 8),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),

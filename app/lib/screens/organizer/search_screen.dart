@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/providers/projectId.dart';
 import 'package:app/providers/role.dart';
 import 'package:app/providers/date.dart';
 import 'package:app/providers/location.dart';
@@ -27,9 +28,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? currentLocation;
   double? latitude;
   double? longitude;
-  String? selectedProject;
 
-  List<String> projects = [];
+  List<Map<String, dynamic>> projects = [];
+  Map<String, dynamic>? selectedProject;
   bool isLoadingProjects = false;
 
   final TextEditingController descriptionController = TextEditingController();
@@ -122,19 +123,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('Project fetch response data: $data');
-        final List<String> fetchedProjects = (data as List)
-            .map((p) => p['name'] as String)
+        final List<Map<String, dynamic>> fetchedProjects = (data as List)
+            .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
         print('Fetched projects: $fetchedProjects');
         setState(() {
           projects = fetchedProjects;
         });
         final savedProject = ref.read(projectNameProvider);
-        if (savedProject != null && savedProject.isNotEmpty) {
-          setState(() {
-            selectedProject = savedProject;
-          });
-          _saveToProviders();
+        if (savedProject.isNotEmpty) {
+          final matchedProject = fetchedProjects.firstWhere(
+            (p) => p['name'] == savedProject,
+            orElse: () => {},
+          );
+          if (matchedProject.isNotEmpty) {
+            setState(() {
+              selectedProject = matchedProject;
+            });
+            _saveToProviders();
+          }
         }
       }
     } catch (e) {
@@ -157,12 +164,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
 
       if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final newProj = {
+          'id': data['_id'], // depends on your backend response
+          'name': data['name'],
+        };
         Navigator.of(dialogCtx).pop();
         setState(() {
-          projects.add(name);
-          selectedProject = name;
+          projects.add(newProj);
+          selectedProject = newProj;
         });
-        ref.read(projectNameProvider.notifier).state = name;
+        ref.read(projectNameProvider.notifier).state = newProj['name'];
+        ref.read(projectIdProvider.notifier).state = newProj['id'];
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Project created successfully')),
         );
@@ -248,7 +261,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _saveToProviders() {
-    ref.read(projectNameProvider.notifier).state = selectedProject ?? '';
+    ref.read(projectNameProvider.notifier).state =
+        selectedProject?['name'] ?? '';
+    ref.read(projectIdProvider.notifier).state = selectedProject?['id'] ?? '';
     ref.read(roleProvider.notifier).state = selectedRole;
     ref.read(dateProvider.notifier).state = {
       'start': selectedDate,
@@ -308,7 +323,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           SizedBox(height: size.height * 0.015),
           isLoadingProjects
               ? const Center(child: CircularProgressIndicator())
-              : DropdownButtonFormField<String>(
+              : DropdownButtonFormField<Map<String, dynamic>>(
                   decoration: InputDecoration(
                     prefixIcon: Icon(
                       Icons.folder_open,
@@ -321,7 +336,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                   value: selectedProject,
                   onChanged: (value) {
-                    if (value == 'Create New Project') {
+                    if (value?['name'] == 'Create New Project') {
                       showCreateProjectDialog();
                     } else {
                       setState(() {
@@ -331,11 +346,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   },
                   items: [
                     ...projects.map(
-                      (proj) =>
-                          DropdownMenuItem(value: proj, child: Text(proj)),
+                      (proj) => DropdownMenuItem(
+                        value: proj,
+                        child: Text(proj['name']),
+                      ),
                     ),
                     const DropdownMenuItem(
-                      value: 'Create New Project',
+                      value: {'id': null, 'name': 'Create New Project'},
                       child: Text(
                         '➕ Create New Project',
                         style: TextStyle(color: Colors.blue),
@@ -343,6 +360,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   ],
                 ),
+
           SizedBox(height: size.height * 0.03),
 
           // 👇 Rest of the UI

@@ -230,6 +230,7 @@ router.post(
   safeHandler(async (req, res) => {
     try {
       const {
+        projectId,
         userId,
         vendors,
         role,
@@ -239,10 +240,18 @@ router.post(
         endDateTime,
       } = req.body;
 
-      if (!userId || !Array.isArray(vendors) || vendors.length === 0) {
+      // 🧩 Basic validation
+      if (!userId || !projectId) {
         return res.status(400).json({
           status: "error",
-          message: "userId and vendors (array of IDs) are required",
+          message: "userId and projectId are required",
+        });
+      }
+
+      if (!Array.isArray(vendors) || vendors.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "vendors (array of IDs) is required",
         });
       }
 
@@ -263,6 +272,24 @@ router.post(
         });
       }
 
+      // 🧩 Ensure user and project exist
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        });
+      }
+
+      const project = user.projects.id(projectId);
+      if (!project) {
+        return res.status(404).json({
+          status: "error",
+          message: "Project not found for this user",
+        });
+      }
+
+      // 🧩 Create requests for each vendor
       const requests = await Promise.all(
         vendors.map(async (vendorId) => {
           const request = await VendorRequest.create({
@@ -273,19 +300,26 @@ router.post(
             description,
             startDateTime: start,
             endDateTime: end,
+            project: projectId, // optional, but good for tracking
           });
 
-          await User.findByIdAndUpdate(userId, {
-            $push: { sentRequests: request._id },
-          });
-
+          // Add request to vendor’s received list
           await Vendor.findByIdAndUpdate(vendorId, {
             $push: { receivedRequests: request._id },
+          });
+
+          // Add request to this specific project's sentRequests
+          project.sentRequests.push({
+            vendor: request._id,
+            role: role,
           });
 
           return request;
         })
       );
+
+      // 🧩 Save user with updated project data
+      await user.save();
 
       return res.status(201).json({
         status: "success",
@@ -293,7 +327,7 @@ router.post(
         data: requests,
       });
     } catch (err) {
-      console.error(err);
+      console.error("Error in /sendrequests:", err);
       return res.status(500).json({
         status: "error",
         message: "Failed to send vendor requests",
