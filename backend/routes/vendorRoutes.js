@@ -204,6 +204,7 @@ router.post(
         id: vendor._id,
         name: vendor.name,
         role: vendor.role,
+        image: vendor.profileImage,
       },
     });
   })
