@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:app/screens/organizer/vendor_detail_page.dart';
+import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/providers/navigation_provider.dart';
@@ -42,9 +43,13 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     final lon = location['longitude'];
 
     try {
-      final url =
-          "https://achin-se-9kiip.ondigitalocean.app/user/vendors/${widget.selectedRole}?lat=$lat&lon=$lon";
-      final response = await http.get(Uri.parse(url));
+      final userId = ref.read(userIdProvider);
+      final projectId = ref.read(projectIdProvider);
+      final response = await http.get(
+        Uri.parse(
+          '$url/vendors/${widget.selectedRole}?lat=$lat&lon=$lon&userId=$userId&projectId=$projectId',
+        ),
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);

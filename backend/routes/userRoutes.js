@@ -187,21 +187,33 @@ router.get(
   "/vendors/:role",
   safeHandler(async (req, res) => {
     try {
-      const { lat, lon } = req.query;
+      const { lat, lon, userId, projectId } = req.query;
 
-      if (!lat || !lon) {
-        return res
-          .status(400)
-          .json({ error: "Latitude and longitude required" });
+      if (!lat || !lon || !userId || !projectId) {
+        return res.status(400).json({
+          error: "Latitude, longitude, userId & projectId required"
+        });
       }
 
       const userLat = parseFloat(lat);
       const userLon = parseFloat(lon);
       const radiusInKm = 10;
 
+      // ✅ Get vendors for selected role
       const vendors = await Vendor.find({
-        role: { $regex: new RegExp(`^${req.params.role}$`, "i") },
+        role: { $regex: new RegExp(`^${req.params.role}$`, "i") }
       });
+
+      // ✅ Find vendors already requested by this user for this project & role
+      const previousRequests = await VendorRequest.find({
+        user: userId,
+        project: projectId,
+        role: req.params.role,
+      }).select("vendor");
+
+      const requestedVendorIds = previousRequests.map(
+        (req) => req.vendor.toString()
+      );
 
       function getDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
@@ -219,18 +231,25 @@ router.get(
 
       const nearbyVendors = vendors.filter((vendor) => {
         if (!vendor.location) return false;
+
         const distance = getDistance(
           userLat,
           userLon,
-          vendor.location.lat,
-          vendor.location.lon
+          parseFloat(vendor.location.lat),
+          parseFloat(vendor.location.lon)
         );
-        console.log(`Vendor ${vendor._id} is ${distance.toFixed(2)} km away`);
+
         return distance <= radiusInKm;
       });
 
-      res.json(nearbyVendors);
+      // ✅ Remove vendors already requested earlier
+      const filteredVendors = nearbyVendors.filter(
+        (v) => !requestedVendorIds.includes(v._id.toString())
+      );
+
+      res.json(filteredVendors);
     } catch (err) {
+      console.error(err);
       res.status(400).json({ error: err.message });
     }
   })
