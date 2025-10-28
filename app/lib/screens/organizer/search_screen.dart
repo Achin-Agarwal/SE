@@ -30,6 +30,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   double? longitude;
 
   List<Map<String, dynamic>> projects = [];
+  List<String> disabledRoles = [];
   Map<String, dynamic>? selectedProject;
   bool isLoadingProjects = false;
 
@@ -57,6 +58,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void initState() {
     super.initState();
     fetchProjects();
+  }
+
+  Future<void> fetchDisabledRoles() async {
+    if (selectedProject == null) return;
+    try {
+      final userId = ref.read(userIdProvider);
+      final projectId = selectedProject!['id'];
+
+      final apiUrl = Uri.parse('$url/user/accepted-roles/$userId/$projectId');
+      final response = await http.get(apiUrl);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          disabledRoles = List<String>.from(data['roles']);
+          if (disabledRoles.contains(selectedRole)) {
+            selectedRole = null;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching disabled roles: $e");
+    }
   }
 
   Future<void> _selectStartDateTime(BuildContext context) async {
@@ -122,14 +146,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Project fetch response data: $data');
         final List<Map<String, dynamic>> fetchedProjects = (data as List)
             .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
-        print('Fetched projects: $fetchedProjects');
+
         setState(() {
           projects = fetchedProjects;
         });
+
         final savedProject = ref.read(projectNameProvider);
         if (savedProject.isNotEmpty) {
           final matchedProject = fetchedProjects.firstWhere(
@@ -140,6 +164,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             setState(() {
               selectedProject = matchedProject;
             });
+            await fetchDisabledRoles();
             _saveToProviders();
           }
         }
@@ -166,7 +191,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = json.decode(response.body);
         final newProj = {
-          'id': data['_id'], // depends on your backend response
+          'id': data['_id'],
           'name': data['name'],
         };
         Navigator.of(dialogCtx).pop();
@@ -176,46 +201,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         });
         ref.read(projectNameProvider.notifier).state = newProj['name'];
         ref.read(projectIdProvider.notifier).state = newProj['id'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Project created successfully')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create project')),
-        );
+        await fetchDisabledRoles();
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      debugPrint('Error creating project: $e');
     }
-  }
-
-  void showCreateProjectDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Project'),
-        content: TextField(
-          controller: projectNameController,
-          decoration: const InputDecoration(hintText: 'Project Name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (projectNameController.text.trim().isNotEmpty) {
-                createProject(projectNameController.text.trim(), dialogCtx);
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _getCurrentLocation() async {
@@ -225,7 +215,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enable location services')),
+        const SnackBar(content: Text('Enable location services')),
       );
       return;
     }
@@ -233,20 +223,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permission denied')),
-        );
-        return;
-      }
+      if (permission == LocationPermission.denied) return;
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission permanently denied')),
-      );
-      return;
-    }
+    if (permission == LocationPermission.deniedForever) return;
 
     Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
@@ -261,8 +241,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _saveToProviders() {
-    print("Saving to providers:");
-    print("Selected Project: $selectedProject");
     ref.read(projectNameProvider.notifier).state =
         selectedProject?['name'] ?? '';
     ref.read(projectIdProvider.notifier).state = selectedProject?['id'] ?? '';
@@ -271,14 +249,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       'start': selectedDate,
       'end': endDate,
     };
-    print("Project ID stored: ${ref.read(projectIdProvider)}");
-    print("Project Name stored: ${ref.read(projectNameProvider)}");
     ref.read(locationProvider.notifier).state = {
       'latitude': latitude ?? 0.0,
       'longitude': longitude ?? 0.0,
     };
-    ref.read(descriptionProvider.notifier).state = descriptionController.text
-        .trim();
+    ref.read(descriptionProvider.notifier).state =
+        descriptionController.text.trim();
   }
 
   @override
@@ -302,9 +278,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ],
         ),
-        child: showResults
-            ? SearchResult(selectedRole: selectedRole)
-            : _buildForm(size),
+        child:
+            showResults ? SearchResult(selectedRole: selectedRole) : _buildForm(size),
       ),
     );
   }
@@ -316,7 +291,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           SizedBox(height: size.height * 0.02),
 
-          // 🧩 Project Dropdown
           Text(
             "Select Project",
             style: TextStyle(
@@ -329,45 +303,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ? const Center(child: CircularProgressIndicator())
               : DropdownButtonFormField<Map<String, dynamic>>(
                   decoration: InputDecoration(
-                    prefixIcon: Icon(
-                      Icons.folder_open,
-                      size: size.width * 0.075,
-                    ),
-                    labelText: "Select Project",
+                    prefixIcon: Icon(Icons.folder_open, size: size.width * 0.075),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(size.width * 0.03),
-                    ),
+                        borderRadius: BorderRadius.circular(size.width * 0.03)),
                   ),
                   value: selectedProject,
-                  onChanged: (value) {
-                    if (value?['name'] == 'Create New Project') {
-                      showCreateProjectDialog();
-                    } else {
-                      setState(() {
-                        selectedProject = value;
-                      });
-                    }
+                  onChanged: (value) async {
+                    setState(() {
+                      selectedProject = value;
+                    });
+                    await fetchDisabledRoles();
                   },
-                  items: [
-                    ...projects.map(
-                      (proj) => DropdownMenuItem(
-                        value: proj,
-                        child: Text(proj['name']),
-                      ),
-                    ),
-                    const DropdownMenuItem(
-                      value: {'id': null, 'name': 'Create New Project'},
-                      child: Text(
-                        '➕ Create New Project',
-                        style: TextStyle(color: Colors.blue),
-                      ),
-                    ),
-                  ],
+                  items: projects
+                      .map(
+                        (proj) => DropdownMenuItem(
+                          value: proj,
+                          child: Text(proj['name']),
+                        ),
+                      )
+                      .toList(),
                 ),
 
           SizedBox(height: size.height * 0.03),
 
-          // 👇 Rest of the UI
           Text(
             "What are you looking for?",
             style: TextStyle(
@@ -376,8 +334,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
 
-          // ... rest of your existing form fields below (same as your code)
-          // Keep the dropdowns, date pickers, location, description, and Find Vendors button unchanged
           SizedBox(height: size.height * 0.02),
           _roleDropdown(size),
           SizedBox(height: size.height * 0.02),
@@ -390,50 +346,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  // --- Helper UI widgets (keep same logic as your original) ---
-  Widget _roleDropdown(Size size) => DropdownButtonFormField<String>(
-    decoration: InputDecoration(
-      prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
-      labelText: "Select Role",
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(size.width * 0.03),
+  Widget _roleDropdown(Size size) {
+    final List<String> filteredRoles =
+        roles.where((r) => !disabledRoles.contains(r)).toList();
+
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
+        labelText: "Select Role",
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.03),
+        ),
       ),
-    ),
-    value: selectedRole,
-    onChanged: (value) => setState(() => selectedRole = value),
-    items: roles
-        .map(
-          (role) => DropdownMenuItem(
-            value: role,
-            child: Text(role, style: TextStyle(fontSize: size.width * 0.04)),
-          ),
-        )
-        .toList(),
-  );
+      value: filteredRoles.contains(selectedRole) ? selectedRole : null,
+      onChanged: (value) => setState(() => selectedRole = value),
+      items: filteredRoles
+          .map(
+            (role) => DropdownMenuItem(
+              value: role,
+              child: Text(
+                role,
+                style: TextStyle(fontSize: size.width * 0.04),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
 
   Widget _dateSelectors(Size size) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Start Date
-        Text(
-          "Start Date & Time",
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: size.width * 0.048,
-          ),
-        ),
-        SizedBox(height: size.height * 0.01),
+        Text("Start Date & Time"),
+        SizedBox(height: 8),
         TextFormField(
           readOnly: true,
           onTap: () => _selectStartDateTime(context),
           decoration: InputDecoration(
-            prefixIcon: Icon(
-              Icons.calendar_today_outlined,
-              size: size.width * 0.075,
-            ),
             labelText: "Select Start Date & Time",
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(),
           ),
           controller: TextEditingController(
             text: selectedDate == null
@@ -441,24 +393,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year} ${selectedDate!.hour}:${selectedDate!.minute.toString().padLeft(2, '0')}",
           ),
         ),
-        SizedBox(height: size.height * 0.02),
-
-        // End Date
-        Text(
-          "End Date & Time",
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: size.width * 0.048,
-          ),
-        ),
-        SizedBox(height: size.height * 0.01),
+        SizedBox(height: 12),
+        Text("End Date & Time"),
+        SizedBox(height: 8),
         TextFormField(
           readOnly: true,
           onTap: () => _selectEndDateTime(context),
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.access_time, size: size.width * 0.075),
             labelText: "Select End Date & Time",
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(),
           ),
           controller: TextEditingController(
             text: endDate == null
@@ -466,88 +409,75 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 : "${endDate!.day}/${endDate!.month}/${endDate!.year} ${endDate!.hour}:${endDate!.minute.toString().padLeft(2, '0')}",
           ),
         ),
-        SizedBox(height: size.height * 0.02),
       ],
     );
   }
 
   Widget _locationField(Size size) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        "Location",
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: size.width * 0.048,
-        ),
-      ),
-      SizedBox(height: size.height * 0.01),
-      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              currentLocation ?? "Location not fetched",
-              style: TextStyle(
-                fontSize: size.width * 0.04,
-                color: currentLocation == null ? Colors.grey : Colors.black,
+          SizedBox(height: size.height * 0.01),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  currentLocation ?? "Location not fetched",
+                  style: TextStyle(
+                    color: currentLocation == null ? Colors.grey : Colors.black,
+                    fontSize: size.width * 0.04,
+                  ),
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
-            onPressed: _getCurrentLocation,
+              IconButton(
+                icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
+                onPressed: _getCurrentLocation,
+              ),
+            ],
           ),
         ],
-      ),
-    ],
-  );
+      );
 
   Widget _descriptionField(Size size) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SizedBox(height: size.height * 0.02),
-      Text(
-        "Description",
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: size.width * 0.048,
-        ),
-      ),
-      SizedBox(height: size.height * 0.01),
-      TextFormField(
-        controller: descriptionController,
-        maxLines: size.height > 700 ? 6 : 4,
-        decoration: InputDecoration(
-          hintText: "Add Description",
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: size.height * 0.02),
+          Text("Description"),
+          SizedBox(height: size.height * 0.01),
+          TextFormField(
+            controller: descriptionController,
+            maxLines: size.height > 700 ? 6 : 4,
+            decoration: InputDecoration(
+              hintText: "Add Description",
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      );
 
   Widget _findVendorsButton(Size size) => Padding(
-    padding: EdgeInsets.only(top: size.height * 0.03),
-    child: SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: isFormValid
-            ? () {
-                _saveToProviders();
-                setState(() => showResults = true);
-              }
-            : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFF4B7D),
-          padding: EdgeInsets.symmetric(vertical: size.height * 0.018),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+        padding: EdgeInsets.only(top: size.height * 0.03),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: isFormValid
+                ? () {
+                    _saveToProviders();
+                    setState(() => showResults = true);
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF4B7D),
+              padding: EdgeInsets.symmetric(vertical: size.height * 0.018),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: Text(
+              "Find Vendors",
+              style:
+                  TextStyle(fontSize: size.width * 0.05, color: Colors.white),
+            ),
           ),
         ),
-        child: Text(
-          "Find Vendors",
-          style: TextStyle(fontSize: size.width * 0.05, color: Colors.white),
-        ),
-      ),
-    ),
-  );
+      );
 }

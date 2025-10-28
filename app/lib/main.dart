@@ -1,9 +1,11 @@
+import 'package:app/providers/userid.dart';
 import 'package:app/screens/dashboard.dart';
 import 'package:app/screens/vendor_dashboard.dart';
 import 'package:app/screens/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -44,23 +46,24 @@ class Shop extends StatelessWidget {
   }
 }
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   final String? token;
   final String? role;
 
   const SplashScreen({super.key, this.token, this.role});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
 
     Future.delayed(const Duration(seconds: 3), () {
-      if (widget.token == null || widget.role == null) {
+      final userId = ref.read(userIdProvider);
+      if (widget.token == null || widget.role == null || userId.isEmpty) {
         Get.offAll(() => const LoginScreen());
       } else if (widget.role == 'User') {
         Get.offAll(() => const Dashboard());

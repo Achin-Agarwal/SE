@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:app/components/rolecard.dart';
 import 'package:app/screens/organizer/role_list.dart';
+import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -18,7 +19,7 @@ class Cart extends ConsumerStatefulWidget {
 class _CartState extends ConsumerState<Cart> {
   String? selectedRole;
   String? selectedProjectId;
-  List<Map<String, String>> projects = [];
+  List<Map<String, dynamic>> projects = [];
   List<String> roles = [];
 
   bool isLoadingProjects = false;
@@ -28,7 +29,8 @@ class _CartState extends ConsumerState<Cart> {
   void initState() {
     super.initState();
     _loadInitialProject();
-    _fetchProjects();
+    fetchProjects();
+    _fetchRoles(selectedProjectId ?? '');
   }
 
   /// ✅ Load saved project from provider
@@ -43,32 +45,32 @@ class _CartState extends ConsumerState<Cart> {
   }
 
   /// ✅ Fetch all projects from backend
-  Future<void> _fetchProjects() async {
+  Future<void> fetchProjects() async {
+    setState(() {
+      isLoadingProjects = true;
+    });
     try {
-      setState(() => isLoadingProjects = true);
-      final userId = ref.read(userIdProvider);
+      final id = ref.read(userIdProvider);
+      final apiUrl = Uri.parse('$url/user/project/$id');
+      final response = await http.get(apiUrl);
 
-      final res = await http.get(
-        Uri.parse("http://localhost:5000/user/projects/$userId"),
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final fetchedProjects = (data['projects'] as List)
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Project fetch response data: $data');
+        final List<Map<String, dynamic>> fetchedProjects = (data as List)
             .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
-
+        print('Fetched projects: $fetchedProjects');
         setState(() {
-          projects = List<Map<String, String>>.from(fetchedProjects);
+          projects = fetchedProjects;
         });
-
-        // Auto-fetch roles if default project exists
-        if (selectedProjectId != null) _fetchRoles(selectedProjectId!);
       }
     } catch (e) {
-      debugPrint("Error fetching projects: $e");
+      debugPrint('Error fetching projects: $e');
     } finally {
-      setState(() => isLoadingProjects = false);
+      setState(() {
+        isLoadingProjects = false;
+      });
     }
   }
 
@@ -79,7 +81,7 @@ class _CartState extends ConsumerState<Cart> {
       final userId = ref.read(userIdProvider);
 
       final res = await http.post(
-        Uri.parse("http://localhost:5000/user/projectroles"),
+        Uri.parse("$url/user/projectroles"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"userId": userId, "projectId": projectId}),
       );
@@ -191,14 +193,22 @@ class _CartState extends ConsumerState<Cart> {
       key: const ValueKey('roleList'),
       children: [
         SizedBox(height: size.height * 0.02),
-        for (final role in roles) ...[
-          RoleCard(
-            label: role,
-            icon: _getIconForRole(role),
-            onTap: () => setState(() => selectedRole = role),
+
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+          child: Column(
+            children: [
+              for (final role in roles) ...[
+                RoleCard(
+                  label: role,
+                  icon: _getIconForRole(role),
+                  onTap: () => setState(() => selectedRole = role),
+                ),
+                SizedBox(height: size.height * 0.02),
+              ],
+            ],
           ),
-          SizedBox(height: size.height * 0.02),
-        ],
+        ),
       ],
     );
   }

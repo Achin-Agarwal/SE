@@ -31,7 +31,6 @@ class _HomeState extends ConsumerState<Home> {
     });
 
     try {
-      // Replace with your API URL
       final id = ref.read(userIdProvider);
       final apiUrl = Uri.parse('$url/user/project/$id');
       final response = await http.get(apiUrl);

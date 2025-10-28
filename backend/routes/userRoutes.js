@@ -163,6 +163,26 @@ router.post(
   })
 );
 
+router.get("/accepted-roles/:userId/:projectId", async (req, res) => {
+  try {
+    const { userId, projectId } = req.params;
+
+    const requests = await VendorRequest.find({
+      user: userId,
+      project: projectId,
+      vendorStatus: "Accepted",
+      userStatus: "Accepted",
+    }).select("role -_id");
+
+    const roles = requests.map((req) => req.role);
+
+    res.status(200).json({ roles });
+  } catch (error) {
+    res.status(500).json({ error: "Server Error" });
+  }
+});
+
+
 router.get(
   "/vendors/:role",
   safeHandler(async (req, res) => {
