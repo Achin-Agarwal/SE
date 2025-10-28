@@ -433,17 +433,24 @@ router.post(
 
 // Get all sent requests by a user
 router.get(
-  "/:userId/requests",
+  "/:userId/requests/:projectId",
   safeHandler(async (req, res) => {
-    const requests = await VendorRequest.find({ user: req.params.userId })
+    const { userId, projectId } = req.params;
+
+    const requests = await VendorRequest.find({
+      user: userId,
+      project: projectId, // ✅ filter by project
+    })
       .populate("vendor", "name role rating description email phone")
       .select(
         "_id user vendor role location description eventDate vendorStatus userStatus createdAt updatedAt additionalDetails budget"
       )
       .lean();
+
     res.json(requests);
   })
 );
+
 
 router.post(
   "/acceptoffer",

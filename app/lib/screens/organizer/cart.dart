@@ -168,7 +168,7 @@ class _CartState extends ConsumerState<Cart> {
                         FadeTransition(opacity: animation, child: child),
                     child: selectedRole == null
                         ? _buildRoleList(size)
-                        : RoleList(selectedRole: selectedRole),
+                        : RoleList(selectedRole: selectedRole,projectId: selectedProjectId!),
                   ),
                 ),
         ),

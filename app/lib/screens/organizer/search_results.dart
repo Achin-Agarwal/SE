@@ -47,7 +47,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       final projectId = ref.read(projectIdProvider);
       final response = await http.get(
         Uri.parse(
-          '$url/vendors/${widget.selectedRole}?lat=$lat&lon=$lon&userId=$userId&projectId=$projectId',
+          '$url/user/vendors/${widget.selectedRole}?lat=$lat&lon=$lon&userId=$userId&projectId=$projectId',
         ),
       );
 
