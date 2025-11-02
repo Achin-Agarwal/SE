@@ -630,4 +630,40 @@ router.post(
   })
 );
 
+router.get("/vendorrequest/:id/progress", async (req, res) => {
+  try {
+    const request = await VendorRequest.findById(req.params.id).lean();
+    if (!request) {
+      return res.status(404).json({ message: "Vendor request not found" });
+    }
+    res.json(request.progress || []);
+  } catch (err) {
+    console.error("Error fetching progress:", err);
+    res.status(500).json({ message: "Error fetching progress" });
+  }
+});
+
+router.put("/vendorrequest/:id/progress", async (req, res) => {
+  try {
+    const { text, done } = req.body;
+    const request = await VendorRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: "Vendor request not found" });
+    }
+
+    const step = request.progress.find((p) => p.text === text);
+    if (step) step.done = done;
+
+    await request.save();
+
+    res.json({
+      message: "Progress updated successfully",
+      progress: request.progress,
+    });
+  } catch (err) {
+    console.error("Error updating progress:", err);
+    res.status(500).json({ message: "Error updating progress" });
+  }
+});
+
 export default router;

@@ -15,7 +15,7 @@ const vendorRequestSchema = new mongoose.Schema(
 
     project: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User.projects", 
+      ref: "User.projects",
       required: true,
     },
 
@@ -63,10 +63,36 @@ const vendorRequestSchema = new mongoose.Schema(
 
     budget: { type: Number },
     additionalDetails: { type: String },
+
+    // 🆕 Progress tracking for booked vendors
+    progress: [
+      {
+        text: {
+          type: String,
+          enum: ["Vendor booked", "Vendor arrived", "Vendor departed"],
+          required: true,
+        },
+        done: { type: Boolean, default: false },
+      },
+    ],
   },
   { timestamps: true }
 );
 
 vendorRequestSchema.index({ location: "2dsphere" });
+vendorRequestSchema.pre("save", function (next) {
+  if (
+    this.vendorStatus === "Accepted" &&
+    this.userStatus === "Accepted" &&
+    (!this.progress || this.progress.length === 0)
+  ) {
+    this.progress = [
+      { text: "Vendor booked", done: true },
+      { text: "Vendor arrived", done: false },
+      { text: "Vendor departed", done: false },
+    ];
+  }
+  next();
+});
 
 export default mongoose.model("VendorRequest", vendorRequestSchema);

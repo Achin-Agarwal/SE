@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:app/components/rolecard.dart';
-import 'package:app/screens/organizer/role_list.dart';
+import 'package:app/screens/organizer/role_list2.dart';
 import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -169,7 +169,7 @@ class _BookingsState extends ConsumerState<Bookings> {
                         FadeTransition(opacity: animation, child: child),
                     child: selectedRole == null
                         ? _buildRoleList(size)
-                        : RoleList(
+                        : RoleList2(
                             selectedRole: selectedRole,
                             projectId: selectedProjectId!,
                           ),
