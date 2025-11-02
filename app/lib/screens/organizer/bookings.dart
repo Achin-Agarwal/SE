@@ -88,6 +88,7 @@ class _BookingsState extends ConsumerState<Bookings> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        print('Roles fetch response data: $data');
         setState(() {
           roles = List<String>.from(data['roles']);
         });

@@ -371,6 +371,7 @@ router.post(
         });
       }
 
+      // Verify user exists
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -379,6 +380,7 @@ router.post(
         });
       }
 
+      // Verify project exists for user
       const project = user.projects.id(projectId);
       if (!project) {
         return res.status(404).json({
@@ -386,10 +388,18 @@ router.post(
           message: "Project not found for this user",
         });
       }
-      const ongoingRequests = project.sentRequests.filter(
-        (r) => !(r.vendorStatus === "Accepted" && r.userStatus === "Accepted")
-      );
 
+      // ✅ Fetch vendor requests that are NOT fully accepted
+      const ongoingRequests = await VendorRequest.find({
+        user: userId,
+        project: projectId,
+        $or: [
+          { vendorStatus: { $ne: "Accepted" } },
+          { userStatus: { $ne: "Accepted" } },
+        ],
+      }).select("role");
+
+      // ✅ Extract unique roles
       const roles = ongoingRequests.map((r) => r.role);
       const uniqueRoles = [...new Set(roles)];
 
@@ -423,6 +433,7 @@ router.post(
         });
       }
 
+      // Ensure user exists
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -431,6 +442,7 @@ router.post(
         });
       }
 
+      // Ensure project exists for this user
       const project = user.projects.id(projectId);
       if (!project) {
         return res.status(404).json({
@@ -439,11 +451,15 @@ router.post(
         });
       }
 
-      // Filter only accepted by both
-      const acceptedRequests = project.sentRequests.filter(
-        (r) => r.vendorStatus === "Accepted" && r.userStatus === "Accepted"
-      );
+      // ✅ Find all accepted vendor requests for this project
+      const acceptedRequests = await VendorRequest.find({
+        user: userId,
+        project: projectId,
+        userStatus: "Accepted",
+        vendorStatus: "Accepted",
+      }).select("role");
 
+      // ✅ Extract unique roles that are booked
       const roles = acceptedRequests.map((r) => r.role);
       const uniqueRoles = [...new Set(roles)];
 
