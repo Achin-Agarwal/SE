@@ -75,16 +75,19 @@ class SignUpController extends GetxController {
   }
 
   void clearForm() {
-  name.clear();
-  email.clear();
-  password.clear();
-  phone.clear();
-  description.clear();
-  role.value = '';
-  profileImage.value = null;
-  workImages.clear();
-  currentLocation.value = '';
-}
+    name.clear();
+    email.clear();
+    password.clear();
+    phone.clear();
+    description.clear();
+    role.value = '';
+    profileImage.value = null;
+    workImages.clear();
+    currentLocation.value = '';
+    latitude.value = 0.0;
+    longitude.value = 0.0;
+    formKey.currentState?.reset();
+  }
 
   Future<void> pickWorkImages(BuildContext context) async {
     showModalBottomSheet(
@@ -189,20 +192,23 @@ class SignUpController extends GetxController {
   }
 
   Future<void> submitForm(BuildContext context) async {
-    if (!formKey.currentState!.validate()) return;
+    if (formKey.currentState == null || !formKey.currentState!.validate()) {
+      Get.snackbar('Invalid', 'Please complete all required fields');
+      return;
+    }
 
     try {
       final String apiUrl = role.value == 'User'
           ? '$url/user/register'
           : '$url/vendor/register';
+
       Get.snackbar(
         'Uploading',
         'Please wait while we upload your data...',
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      var apiUri = Uri.parse(apiUrl);
-      var request = http.MultipartRequest('POST', apiUri);
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
 
       request.fields.addAll({
         'name': name.text,
@@ -210,7 +216,6 @@ class SignUpController extends GetxController {
         'password': password.text,
         'phone': phone.text,
         'description': description.text,
-        // 'gender': gender.value,
         'role': role.value,
         'location': '{"lat": ${latitude.value}, "lon": ${longitude.value}}',
       });
@@ -233,18 +238,13 @@ class SignUpController extends GetxController {
       var response = await request.send();
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        var responseBody = await response.stream.bytesToString();
         clearForm();
         Get.snackbar(
           'Success',
           'Signup successful!',
           snackPosition: SnackPosition.BOTTOM,
         );
-        print('Response: $responseBody');
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => LoginScreen()),
-        );
+        Get.offAll(() => const LoginScreen());
       } else {
         var error = await response.stream.bytesToString();
         Get.snackbar(

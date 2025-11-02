@@ -465,7 +465,6 @@ router.post(
   })
 );
 
-// Get all sent requests by a user
 router.get(
   "/:userId/requests/:projectId",
   safeHandler(async (req, res) => {
@@ -474,6 +473,8 @@ router.get(
     const requests = await VendorRequest.find({
       user: userId,
       project: projectId,
+      userStatus: { $ne: "accepted" },
+      vendorStatus: { $ne: "accepted" },
     })
       .populate("vendor", "name role rating description email phone")
       .select(
@@ -485,6 +486,26 @@ router.get(
   })
 );
 
+router.get(
+  "/:userId/accepted/:projectId",
+  safeHandler(async (req, res) => {
+    const { userId, projectId } = req.params;
+
+    const acceptedRequests = await VendorRequest.find({
+      user: userId,
+      project: projectId,
+      userStatus: "accepted",
+      vendorStatus: "accepted",
+    })
+      .populate("vendor", "name role rating description email phone")
+      .select(
+        "_id user vendor role location description eventDate vendorStatus userStatus createdAt updatedAt additionalDetails budget"
+      )
+      .lean();
+
+    res.json(acceptedRequests);
+  })
+);
 
 router.post(
   "/acceptoffer",

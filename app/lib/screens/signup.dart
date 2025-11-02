@@ -11,12 +11,16 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  late SignUpController controller;  
+  late SignUpController controller;
 
   @override
   void initState() {
     super.initState();
-    controller = Get.put(SignUpController());
+    if (Get.isRegistered<SignUpController>()) {
+      controller = Get.find<SignUpController>();
+    } else {
+      controller = Get.put(SignUpController());
+    }
   }
 
   @override
@@ -42,7 +46,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 child: Column(
                   children: [
-                    // ✅ Branding Header
                     SizedBox(
                       width: size.width * 0.55,
                       child: Lottie.asset('assets/cocktail.json'),
@@ -72,7 +75,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     const SizedBox(height: 25),
 
-                    // ✅ Form Card UI
+                    // ✅ Use controller's form key
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -91,7 +94,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         onChanged: () => setState(() {}),
                         child: Column(
                           children: [
-                            // Profile Avatar Upload
                             GestureDetector(
                               onTap: () => controller.pickProfileImage(context),
                               child: Obx(
@@ -115,7 +117,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                             const SizedBox(height: 20),
 
-                            // Name
                             TextFormField(
                               controller: controller.name,
                               decoration: _inputDecoration(
@@ -125,8 +126,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                             const SizedBox(height: 15),
 
-                            // Role Selection
                             DropdownButtonFormField<String>(
+                              value: controller.role.value.isEmpty
+                                  ? null
+                                  : controller.role.value,
                               decoration: _inputDecoration(
                                 "Role",
                                 icon: Icons.work,
@@ -194,7 +197,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              // Work Images Section
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -276,7 +278,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               const SizedBox(height: 20),
 
-                              // ✅ Location
                               Obx(
                                 () => Column(
                                   children: [
@@ -308,7 +309,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               const SizedBox(height: 30),
                             ],
 
-                            // ✅ Enhanced Sign Up Button
                             AnimatedOpacity(
                               opacity: isEnabled ? 1 : 0.5,
                               duration: const Duration(milliseconds: 300),
