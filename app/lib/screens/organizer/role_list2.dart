@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:app/components/role_item_card.dart';
 import 'package:app/components/booking_detail_card.dart';
+import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -38,13 +39,12 @@ class _RoleList2State extends ConsumerState<RoleList2> {
 
     final userId = ref.read(userIdProvider);
 
-    /// ✅ Updated API endpoint to fetch by project
-    final url = Uri.parse(
-      "https://achin-se-9kiip.ondigitalocean.app/user/$userId/accepted/${widget.projectId}",
+    final urls = Uri.parse(
+      "$url/user/$userId/accepted/${widget.projectId}",
     );
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(urls);
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);

@@ -666,4 +666,42 @@ router.put("/vendorrequest/:id/progress", async (req, res) => {
   }
 });
 
+router.put("/vendorrequest/:id/review", async (req, res) => {
+  try {
+    const { userId, message, rating } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+    vendor.ratingMessages.push({
+      userId,
+      message,
+      rating,
+    });
+    const totalRatings = vendor.ratingMessages.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = totalRatings / vendor.ratingMessages.length;
+    vendor.rating = averageRating.toFixed(1);
+
+    await vendor.save();
+
+    res.json({
+      message: "Review added successfully",
+      vendor: {
+        _id: vendor._id,
+        name: vendor.name,
+        rating: vendor.rating,
+        ratingMessages: vendor.ratingMessages,
+      },
+    });
+  } catch (err) {
+    console.error("Error adding review:", err);
+    res.status(500).json({ message: "Error adding review" });
+  }
+});
+
 export default router;

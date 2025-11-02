@@ -43,8 +43,6 @@ class _BookingsState extends ConsumerState<Bookings> {
       });
     }
   }
-
-  /// ✅ Fetch all projects from backend
   Future<void> fetchProjects() async {
     setState(() {
       isLoadingProjects = true;
