@@ -74,6 +74,18 @@ class SignUpController extends GetxController {
     );
   }
 
+  void clearForm() {
+  name.clear();
+  email.clear();
+  password.clear();
+  phone.clear();
+  description.clear();
+  role.value = '';
+  profileImage.value = null;
+  workImages.clear();
+  currentLocation.value = '';
+}
+
   Future<void> pickWorkImages(BuildContext context) async {
     showModalBottomSheet(
       context: context,
@@ -222,6 +234,7 @@ class SignUpController extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         var responseBody = await response.stream.bytesToString();
+        clearForm();
         Get.snackbar(
           'Success',
           'Signup successful!',

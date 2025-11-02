@@ -11,7 +11,7 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  late SignUpController controller;
+  late SignUpController controller;  
 
   @override
   void initState() {

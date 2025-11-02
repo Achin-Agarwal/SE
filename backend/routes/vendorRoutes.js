@@ -15,15 +15,18 @@ import multerS3 from "multer-s3";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+// ✅ Configure S3 client for DigitalOcean Spaces
 const s3 = new S3Client({
   endpoint: process.env.DO_SPACES_ENDPOINT,
   region: "blr1",
-  forcePathStyle: false,
   credentials: {
     accessKeyId: process.env.DO_SPACES_KEY,
     secretAccessKey: process.env.DO_SPACES_SECRET,
   },
 });
+
+// ✅ Multer storage for profile + work images
 export const upload = multer({
   storage: multerS3({
     s3,
@@ -39,22 +42,16 @@ export const upload = multer({
   { name: "workImages", maxCount: 20 },
 ]);
 
-
 const router = express.Router();
+
+// ✅ Vendor Register Route
 router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
-    const {
-      name,
-      email,
-      password,
-      phone,
-      role,
-      description,
-      location,
-    } = req.body;
+    const { name, email, password, phone, role, description, location } = req.body;
 
+    // Parse location safely
     let parsedLocation = location;
     if (typeof location === "string") {
       try {
@@ -64,6 +61,7 @@ router.post(
       }
     }
 
+    // Validate fields
     if (
       !name ||
       !email ||
@@ -77,6 +75,7 @@ router.post(
       return res.error(400, "Missing required fields", "VALIDATION_ERROR");
     }
 
+    // Check for duplicates
     const existingVendor = await Vendor.findOne({
       $or: [{ email }, { phone }],
     });
@@ -90,13 +89,25 @@ router.post(
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ✅ Fix URLs to always include https://
+    const addHttpsPrefix = (url) => {
+      if (!url) return null;
+      if (url.startsWith("http")) return url;
+      // Build full URL: https://<bucket>.<endpoint>/<key>
+      return `https://${process.env.DO_SPACES_BUCKET}.${process.env.DO_SPACES_ENDPOINT.replace(
+        /^https?:\/\//,
+        ""
+      )}/${url}`;
+    };
+
     const profileImageUrl = req.files?.profileImage
-      ? req.files.profileImage[0].location
+      ? addHttpsPrefix(req.files.profileImage[0].location)
       : null;
 
     const workImagesUrls =
-      req.files?.workImages?.map((file) => file.location) || [];
+      req.files?.workImages?.map((file) => addHttpsPrefix(file.location)) || [];
 
+    // ✅ Create new vendor
     const newVendor = new Vendor({
       name,
       email,
