@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/components/chat_screen.dart';
 import 'package:app/providers/navigation_provider.dart';
 import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
@@ -65,7 +66,7 @@ class _HomeState extends ConsumerState<Home> {
         body: json.encode({'name': name}),
       );
       if (response.statusCode == 201 || response.statusCode == 200) {
-        ref.read(projectNameProvider.notifier).state = name; 
+        ref.read(projectNameProvider.notifier).state = name;
         ref.read(navIndexProvider.notifier).state = 1;
       } else {
         ScaffoldMessenger.of(
@@ -153,7 +154,12 @@ class _HomeState extends ConsumerState<Home> {
                                 size: 18,
                               ),
                               onTap: () {
-                                // Handle project click
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ChatScreen(),
+                                  ),
+                                );
                               },
                             ),
                           );

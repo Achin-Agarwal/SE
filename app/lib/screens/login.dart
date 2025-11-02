@@ -89,11 +89,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           );
         }
+      } else {
+        final errorMsg = data['message'] ?? 'Login failed';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMsg)));
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      final msg = e is http.ClientException
+          ? "Unable to connect to server. Please check your internet."
+          : "Unexpected error: $e";
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       setState(() => _isLoading = false);
     }

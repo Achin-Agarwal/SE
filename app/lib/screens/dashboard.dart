@@ -25,7 +25,7 @@ class Dashboard extends ConsumerWidget {
       const SearchScreen(),
       const Cart(),
       const Bookings(),
-      const Profile(),
+      // const Profile(),
     ];
 
     String imageUrl = ref.watch(imageProvider);
@@ -122,7 +122,7 @@ class Dashboard extends ConsumerWidget {
             color: Colors.pink,
           ),
           Icon(Icons.book, size: size.height * 0.04, color: Colors.pink),
-          Icon(Icons.person, size: size.height * 0.04, color: Colors.pink),
+          // Icon(Icons.person, size: size.height * 0.04, color: Colors.pink),
         ],
         onTap: (index) => ref.read(navIndexProvider.notifier).state = index,
       ),

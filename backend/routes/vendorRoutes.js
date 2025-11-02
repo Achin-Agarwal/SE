@@ -139,7 +139,8 @@ router.post(
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       console.log(parsed.error);
-      return res.error(400, "Validation failed", "VALIDATION_ERROR");
+      return res.error(400, "Validation failed", "VALIDATION_ERROR",
+    parsed.error.flatten());
     }
 
     const { email, password, role } = parsed.data;

@@ -163,6 +163,13 @@ router.post(
   })
 );
 
+
+
+
+
+
+
+
 router.get("/accepted-roles/:userId/:projectId", async (req, res) => {
   try {
     const { userId, projectId } = req.params;
@@ -188,33 +195,25 @@ router.get(
   safeHandler(async (req, res) => {
     try {
       const { lat, lon, userId, projectId } = req.query;
-
       if (!lat || !lon || !userId || !projectId) {
         return res.status(400).json({
           error: "Latitude, longitude, userId & projectId required"
         });
       }
-
       const userLat = parseFloat(lat);
       const userLon = parseFloat(lon);
       const radiusInKm = 10;
-
-      // ✅ Get vendors for selected role
       const vendors = await Vendor.find({
         role: { $regex: new RegExp(`^${req.params.role}$`, "i") }
       });
-
-      // ✅ Find vendors already requested by this user for this project & role
       const previousRequests = await VendorRequest.find({
         user: userId,
         project: projectId,
         role: req.params.role,
       }).select("vendor");
-
       const requestedVendorIds = previousRequests.map(
         (req) => req.vendor.toString()
       );
-
       function getDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
         const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -228,25 +227,19 @@ router.get(
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
       }
-
       const nearbyVendors = vendors.filter((vendor) => {
         if (!vendor.location) return false;
-
         const distance = getDistance(
           userLat,
           userLon,
           parseFloat(vendor.location.lat),
           parseFloat(vendor.location.lon)
         );
-
         return distance <= radiusInKm;
       });
-
-      // ✅ Remove vendors already requested earlier
       const filteredVendors = nearbyVendors.filter(
         (v) => !requestedVendorIds.includes(v._id.toString())
       );
-
       res.json(filteredVendors);
     } catch (err) {
       console.error(err);
@@ -270,8 +263,6 @@ router.post(
         startDateTime,
         endDateTime,
       } = req.body;
-
-      // 🧩 Basic validation
       if (!userId || !projectId) {
         return res.status(400).json({
           status: "error",
@@ -302,8 +293,6 @@ router.post(
           message: "endDateTime must be after startDateTime",
         });
       }
-
-      // 🧩 Ensure user and project exist
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -319,15 +308,13 @@ router.post(
           message: "Project not found for this user",
         });
       }
-
-      // 🧩 Create requests for each vendor
       const requests = await Promise.all(
         vendors.map(async (vendorId) => {
           const formattedLocation = {
             type: "Point",
             coordinates: [
-              location.longitude, // longitude first
-              location.latitude, // latitude second
+              location.longitude,
+              location.latitude,
             ],
           };
 
@@ -354,8 +341,6 @@ router.post(
           return request;
         })
       );
-
-      // 🧩 Save user with updated project data
       await user.save();
 
       return res.status(201).json({
@@ -379,8 +364,6 @@ router.post(
   safeHandler(async (req, res) => {
     try {
       const { userId, projectId } = req.body;
-
-      // 🧩 Validate input
       if (!userId || !projectId) {
         return res.status(400).json({
           status: "error",
@@ -388,7 +371,6 @@ router.post(
         });
       }
 
-      // 🧩 Find the user
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -397,7 +379,6 @@ router.post(
         });
       }
 
-      // 🧩 Find the project inside user's projects array
       const project = user.projects.id(projectId);
       if (!project) {
         return res.status(404).json({
@@ -405,16 +386,16 @@ router.post(
           message: "Project not found for this user",
         });
       }
+      const ongoingRequests = project.sentRequests.filter(
+        (r) => !(r.vendorStatus === "Accepted" && r.userStatus === "Accepted")
+      );
 
-      // 🧩 Extract all roles from sentRequests inside that project
-      const roles = project.sentRequests.map((r) => r.role);
-
-      // 🧩 Remove duplicates (optional)
+      const roles = ongoingRequests.map((r) => r.role);
       const uniqueRoles = [...new Set(roles)];
 
       return res.status(200).json({
         status: "success",
-        message: "Roles fetched successfully",
+        message: "Ongoing roles fetched successfully",
         projectName: project.name,
         totalRoles: uniqueRoles.length,
         roles: uniqueRoles,
@@ -430,6 +411,59 @@ router.post(
   })
 );
 
+router.post(
+  "/projectroles/accepted",
+  safeHandler(async (req, res) => {
+    try {
+      const { userId, projectId } = req.body;
+      if (!userId || !projectId) {
+        return res.status(400).json({
+          status: "error",
+          message: "userId and projectId are required",
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          status: "error",
+          message: "User not found",
+        });
+      }
+
+      const project = user.projects.id(projectId);
+      if (!project) {
+        return res.status(404).json({
+          status: "error",
+          message: "Project not found for this user",
+        });
+      }
+
+      // Filter only accepted by both
+      const acceptedRequests = project.sentRequests.filter(
+        (r) => r.vendorStatus === "Accepted" && r.userStatus === "Accepted"
+      );
+
+      const roles = acceptedRequests.map((r) => r.role);
+      const uniqueRoles = [...new Set(roles)];
+
+      return res.status(200).json({
+        status: "success",
+        message: "Accepted roles fetched successfully",
+        projectName: project.name,
+        totalRoles: uniqueRoles.length,
+        roles: uniqueRoles,
+      });
+    } catch (err) {
+      console.error("Error in /projectroles/accepted:", err);
+      return res.status(500).json({
+        status: "error",
+        message: "Failed to fetch accepted roles",
+        error: err.message,
+      });
+    }
+  })
+);
 
 // Get all sent requests by a user
 router.get(
@@ -439,7 +473,7 @@ router.get(
 
     const requests = await VendorRequest.find({
       user: userId,
-      project: projectId, // ✅ filter by project
+      project: projectId,
     })
       .populate("vendor", "name role rating description email phone")
       .select(
@@ -457,14 +491,11 @@ router.post(
   safeHandler(async (req, res) => {
     try {
       const { requestId, userId, role, accept } = req.body;
-
       if (!requestId || !userId || !role || typeof accept !== "boolean") {
         return res.error(400, "Missing or invalid fields", "MISSING_FIELDS");
       }
 
       const requestObjectId = new ObjectId(requestId);
-      const roleLower = role.toLowerCase();
-
       if (accept) {
         const acceptedReq = await VendorRequest.findByIdAndUpdate(
           requestObjectId,
@@ -475,43 +506,16 @@ router.post(
         if (!acceptedReq) {
           return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
         }
-
-        const otherRequests = await VendorRequest.find({
-          user: userId,
-          role: { $regex: new RegExp(`^${roleLower}$`, "i") },
-          _id: { $ne: requestObjectId },
-        });
-
-        await Promise.all(
-          otherRequests.map(async (reqDoc) => {
-            await Promise.all([
-              User.findByIdAndUpdate(reqDoc.user, {
-                $pull: { sentRequests: reqDoc._id },
-              }),
-              Vendor.findByIdAndUpdate(reqDoc.vendor, {
-                $pull: { receivedRequests: reqDoc._id },
-              }),
-            ]);
-          })
-        );
-
-        const deleted = await VendorRequest.deleteMany({
-          user: userId,
-          role: { $regex: new RegExp(`^${roleLower}$`, "i") },
-          _id: { $ne: requestObjectId },
-        });
-
         return res.success(200, "Offer accepted successfully", {
           acceptedRequest: acceptedReq,
-          deletedRequestsCount: deleted.deletedCount,
         });
-      } else {
+      }
+      else {
         const reqToDelete = await VendorRequest.findById(requestObjectId);
 
         if (!reqToDelete) {
           return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
         }
-
         await Promise.all([
           User.findByIdAndUpdate(reqToDelete.user, {
             $pull: { sentRequests: reqToDelete._id },
@@ -520,9 +524,7 @@ router.post(
             $pull: { receivedRequests: reqToDelete._id },
           }),
         ]);
-
         await VendorRequest.findByIdAndDelete(requestObjectId);
-
         return res.success(200, "Offer rejected and deleted successfully", {
           deletedRequest: requestId,
         });
@@ -532,6 +534,61 @@ router.post(
       return res.error(500, "Failed to process offer", "ACCEPT_OFFER_ERROR", {
         details: err.message,
       });
+    }
+  })
+);
+
+router.post(
+  "/:role/:projectId",
+  safeHandler(async (req, res) => {
+    try {
+      const { role, projectId } = req.params;
+      if (!role || !projectId) {
+        return res.error(400, "Missing role or projectId", "MISSING_FIELDS");
+      }
+      const roleLower = role.toLowerCase();
+      const deletedRequests = await VendorRequest.find({
+        project: projectId,
+        role: { $regex: new RegExp(`^${roleLower}$`, "i") },
+        userStatus: { $ne: "Accepted" },
+      });
+
+      if (!deletedRequests.length) {
+        return res.success(200, "No pending requests to delete", {
+          deletedCount: 0,
+        });
+      }
+
+      await Promise.all(
+        deletedRequests.map(async (reqDoc) => {
+          await Promise.all([
+            User.findByIdAndUpdate(reqDoc.user, {
+              $pull: { sentRequests: reqDoc._id },
+            }),
+            Vendor.findByIdAndUpdate(reqDoc.vendor, {
+              $pull: { receivedRequests: reqDoc._id },
+            }),
+          ]);
+        })
+      );
+
+      const result = await VendorRequest.deleteMany({
+        project: projectId,
+        role: { $regex: new RegExp(`^${roleLower}$`, "i") },
+        userStatus: { $ne: "Accepted" },
+      });
+
+      return res.success(200, "Deleted all unaccepted requests successfully", {
+        deletedCount: result.deletedCount,
+      });
+    } catch (err) {
+      console.error("Delete unaccepted requests error:", err);
+      return res.error(
+        500,
+        "Failed to delete unaccepted requests",
+        "DELETE_UNACCEPTED_REQUESTS_ERROR",
+        { details: err.message }
+      );
     }
   })
 );

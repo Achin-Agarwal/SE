@@ -340,13 +340,13 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
                               Text("Role: ${req['role'] ?? '—'}"),
                             ],
                           ),
-                          Row(
-                            children: [
-                              const Icon(Ionicons.location_outline, size: 18),
-                              const SizedBox(width: 6),
-                              Text("Location: ${req['location'] ?? '—'}"),
-                            ],
-                          ),
+                          // Row(
+                          //   children: [
+                          //     const Icon(Ionicons.location_outline, size: 18),
+                          //     const SizedBox(width: 6),
+                          //     Text("Location: ${req['location'] ?? '—'}"),
+                          //   ],
+                          // ),
                           Row(
                             children: [
                               const Icon(Ionicons.calendar_outline, size: 18),

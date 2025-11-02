@@ -33,11 +33,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Map<String, dynamic>? selectedProject;
   bool isLoadingProjects = false;
 
-  // new: roles that should be removed (already accepted)
   List<String> disabledRoles = [];
 
   final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController projectNameController = TextEditingController();
   bool showResults = false;
 
   final List<String> roles = [
@@ -62,7 +60,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     fetchProjects();
   }
 
-  // ------- NEW: fetch roles that are already accepted for this user+project -------
   Future<void> fetchDisabledRoles() async {
     if (selectedProject == null || selectedProject?['id'] == null) return;
     try {
@@ -75,13 +72,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         final data = json.decode(response.body);
         setState(() {
           disabledRoles = List<String>.from(data['roles'] ?? []);
-          // if the currently selected role is now disabled, clear it
           if (selectedRole != null && disabledRoles.contains(selectedRole)) {
             selectedRole = null;
           }
         });
       } else {
-        // non-200 — just clear disabledRoles to avoid blocking roles
         setState(() {
           disabledRoles = [];
         });
@@ -93,7 +88,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       });
     }
   }
-  // -------------------------------------------------------------------------------
 
   Future<void> _selectStartDateTime(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
@@ -158,11 +152,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Project fetch response data: $data');
         final List<Map<String, dynamic>> fetchedProjects = (data as List)
             .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
-        print('Fetched projects: $fetchedProjects');
         setState(() {
           projects = fetchedProjects;
         });
@@ -176,7 +168,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             setState(() {
               selectedProject = matchedProject;
             });
-            // fetch disabled roles for that saved project
             await fetchDisabledRoles();
             _saveToProviders();
           }
@@ -189,79 +180,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         isLoadingProjects = false;
       });
     }
-  }
-
-  Future<void> createProject(String name, BuildContext dialogCtx) async {
-    try {
-      final id = ref.read(userIdProvider);
-      final apiUrl = Uri.parse('$url/user/project/$id');
-      final response = await http.post(
-        apiUrl,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'name': name}),
-      );
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final newProj = {
-          'id': data['_id'], // depends on your backend response
-          'name': data['name'],
-        };
-        Navigator.of(dialogCtx).pop();
-        setState(() {
-          projects.add(newProj);
-          selectedProject = newProj;
-        });
-        ref.read(projectNameProvider.notifier).state = newProj['name'];
-        ref.read(projectIdProvider.notifier).state = newProj['id'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Project created successfully')),
-        );
-        // fetch disabled roles for this newly created project (likely none, but safe)
-        await fetchDisabledRoles();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create project')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  void showCreateProjectDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Project'),
-        content: TextField(
-          controller: projectNameController,
-          decoration: const InputDecoration(hintText: 'Project Name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              projectNameController.clear();
-              Navigator.of(dialogCtx).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (projectNameController.text.trim().isNotEmpty) {
-                createProject(
-                  projectNameController.text.trim(),
-                  dialogCtx,
-                ).then((_) => projectNameController.clear());
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _getCurrentLocation() async {
@@ -307,8 +225,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _saveToProviders() {
-    print("Saving to providers:");
-    print("Selected Project: $selectedProject");
     ref.read(projectNameProvider.notifier).state =
         selectedProject?['name'] ?? '';
     ref.read(projectIdProvider.notifier).state = selectedProject?['id'] ?? '';
@@ -317,8 +233,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       'start': selectedDate,
       'end': endDate,
     };
-    print("Project ID stored: ${ref.read(projectIdProvider)}");
-    print("Project Name stored: ${ref.read(projectNameProvider)}");
     ref.read(locationProvider.notifier).state = {
       'latitude': latitude ?? 0.0,
       'longitude': longitude ?? 0.0,
@@ -362,7 +276,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           SizedBox(height: size.height * 0.02),
 
-          // 🧩 Project Dropdown
           Text(
             "Select Project",
             style: TextStyle(
@@ -386,36 +299,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                   value: selectedProject,
                   onChanged: (value) async {
-                    if (value?['name'] == 'Create New Project') {
-                      showCreateProjectDialog();
-                    } else {
-                      setState(() {
-                        selectedProject = value;
-                      });
-                      // fetch roles disabled for this selected project
-                      await fetchDisabledRoles();
-                    }
+                    setState(() {
+                      selectedProject = value;
+                    });
+                    await fetchDisabledRoles();
                   },
-                  items: [
-                    ...projects.map(
-                      (proj) => DropdownMenuItem(
-                        value: proj,
-                        child: Text(proj['name']),
-                      ),
-                    ),
-                    const DropdownMenuItem(
-                      value: {'id': null, 'name': 'Create New Project'},
-                      child: Text(
-                        '➕ Create New Project',
-                        style: TextStyle(color: Colors.blue),
-                      ),
-                    ),
-                  ],
+                  items: projects
+                      .map(
+                        (proj) => DropdownMenuItem(
+                          value: proj,
+                          child: Text(proj['name']),
+                        ),
+                      )
+                      .toList(),
                 ),
 
           SizedBox(height: size.height * 0.03),
-
-          // 👇 Rest of the UI
           Text(
             "What are you looking for?",
             style: TextStyle(
@@ -423,9 +322,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-
-          // ... rest of your existing form fields below (same as your code)
-          // Keep the dropdowns, date pickers, location, description, and Find Vendors button unchanged
           SizedBox(height: size.height * 0.02),
           _roleDropdown(size),
           SizedBox(height: size.height * 0.02),
@@ -438,9 +334,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  // --- Helper UI widgets (keep same logic as your original) ---
   Widget _roleDropdown(Size size) {
-    // Remove disabled/accepted roles completely (Option A)
     final List<String> filteredRoles = roles
         .where((r) => !disabledRoles.contains(r))
         .toList();
@@ -470,7 +364,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Start Date
         Text(
           "Start Date & Time",
           style: TextStyle(
@@ -497,8 +390,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ),
         SizedBox(height: size.height * 0.02),
-
-        // End Date
         Text(
           "End Date & Time",
           style: TextStyle(
