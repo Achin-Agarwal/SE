@@ -473,8 +473,8 @@ router.get(
     const requests = await VendorRequest.find({
       user: userId,
       project: projectId,
-      userStatus: { $ne: "accepted" },
-      vendorStatus: { $ne: "accepted" },
+      userStatus: { $ne: "Accepted" },
+      vendorStatus: { $ne: "Accepted" },
     })
       .populate("vendor", "name role rating description email phone")
       .select(
@@ -494,8 +494,8 @@ router.get(
     const acceptedRequests = await VendorRequest.find({
       user: userId,
       project: projectId,
-      userStatus: "accepted",
-      vendorStatus: "accepted",
+      userStatus: "Accepted",
+      vendorStatus: "Accepted",
     })
       .populate("vendor", "name role rating description email phone")
       .select(
