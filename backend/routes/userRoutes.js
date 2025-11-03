@@ -154,21 +154,12 @@ router.post(
     }
     user.projects.push({ name, sentRequests: [] });
     await user.save();
-    res
-      .status(201)
-      .json({
-        message: "Project created successfully",
-        project: user.projects[user.projects.length - 1],
-      });
+    res.status(201).json({
+      message: "Project created successfully",
+      project: user.projects[user.projects.length - 1],
+    });
   })
 );
-
-
-
-
-
-
-
 
 router.get("/accepted-roles/:userId/:projectId", async (req, res) => {
   try {
@@ -189,7 +180,6 @@ router.get("/accepted-roles/:userId/:projectId", async (req, res) => {
   }
 });
 
-
 router.get(
   "/vendors/:role",
   safeHandler(async (req, res) => {
@@ -197,22 +187,22 @@ router.get(
       const { lat, lon, userId, projectId } = req.query;
       if (!lat || !lon || !userId || !projectId) {
         return res.status(400).json({
-          error: "Latitude, longitude, userId & projectId required"
+          error: "Latitude, longitude, userId & projectId required",
         });
       }
       const userLat = parseFloat(lat);
       const userLon = parseFloat(lon);
       const radiusInKm = 10;
       const vendors = await Vendor.find({
-        role: { $regex: new RegExp(`^${req.params.role}$`, "i") }
+        role: { $regex: new RegExp(`^${req.params.role}$`, "i") },
       });
       const previousRequests = await VendorRequest.find({
         user: userId,
         project: projectId,
         role: req.params.role,
       }).select("vendor");
-      const requestedVendorIds = previousRequests.map(
-        (req) => req.vendor.toString()
+      const requestedVendorIds = previousRequests.map((req) =>
+        req.vendor.toString()
       );
       function getDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
@@ -312,10 +302,7 @@ router.post(
         vendors.map(async (vendorId) => {
           const formattedLocation = {
             type: "Point",
-            coordinates: [
-              location.longitude,
-              location.latitude,
-            ],
+            coordinates: [location.longitude, location.latitude],
           };
 
           const request = await VendorRequest.create({
@@ -506,20 +493,35 @@ router.get(
   "/:userId/accepted/:projectId",
   safeHandler(async (req, res) => {
     const { userId, projectId } = req.params;
-
-    const acceptedRequests = await VendorRequest.find({
+    const user = await User.findById(userId).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const project = user.projects.find(
+      (p) => p._id.toString() === projectId.toString()
+    );
+    if (!project)
+      return res.status(404).json({ message: "Project not found for this user" });
+    const requests = await VendorRequest.find({
       user: userId,
       project: projectId,
-      userStatus: "Accepted",
-      vendorStatus: "Accepted",
+      userStatus: { $ne: "Accepted" },
+      vendorStatus: { $ne: "Accepted" },
     })
       .populate("vendor", "name role rating description email phone")
-      .select(
-        "_id user vendor role location description eventDate vendorStatus userStatus createdAt updatedAt additionalDetails budget"
-      )
       .lean();
-
-    res.json(acceptedRequests);
+    const requestsWithProject = requests.map((req) => ({
+      ...req,
+      project: {
+        _id: project._id,
+        name: project.name,
+      },
+    }));
+    res.json({
+      project: {
+        _id: project._id,
+        name: project.name,
+      },
+      requests: requestsWithProject,
+    });
   })
 );
 
@@ -546,8 +548,7 @@ router.post(
         return res.success(200, "Offer accepted successfully", {
           acceptedRequest: acceptedReq,
         });
-      }
-      else {
+      } else {
         const reqToDelete = await VendorRequest.findById(requestObjectId);
 
         if (!reqToDelete) {
@@ -668,35 +669,36 @@ router.put("/vendorrequest/:id/progress", async (req, res) => {
 
 router.put("/vendorrequest/:id/review", async (req, res) => {
   try {
-    const { userId, message, rating } = req.body;
+    const { rating, message } = req.body;
 
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      return res
+        .status(400)
+        .json({ message: "Rating must be between 1 and 5" });
     }
 
-    const vendor = await Vendor.findById(req.params.id);
-    if (!vendor) {
-      return res.status(404).json({ message: "Vendor not found" });
+    const request = await VendorRequest.findById(req.params.id).populate(
+      "vendor"
+    );
+    if (!request) {
+      return res.status(404).json({ message: "Vendor request not found" });
     }
-    vendor.ratingMessages.push({
-      userId,
-      message,
-      rating,
+    request.rating = rating;
+    request.ratingMessage = message;
+    await request.save();
+    const vendorRequests = await VendorRequest.find({
+      vendor: request.vendor._id,
+      rating: { $exists: true },
     });
-    const totalRatings = vendor.ratingMessages.reduce((sum, r) => sum + r.rating, 0);
-    const averageRating = totalRatings / vendor.ratingMessages.length;
-    vendor.rating = averageRating.toFixed(1);
 
-    await vendor.save();
+    const totalRatings = vendorRequests.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = totalRatings / vendorRequests.length;
+    request.vendor.rating = averageRating.toFixed(1);
+    await request.vendor.save();
 
     res.json({
       message: "Review added successfully",
-      vendor: {
-        _id: vendor._id,
-        name: vendor.name,
-        rating: vendor.rating,
-        ratingMessages: vendor.ratingMessages,
-      },
+      updatedVendorRating: request.vendor.rating,
     });
   } catch (err) {
     console.error("Error adding review:", err);

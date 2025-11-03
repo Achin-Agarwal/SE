@@ -25,18 +25,6 @@ const vendorSchema = new mongoose.Schema(
     workImages: [{ type: String }],
 
     rating: { type: Number, default: 0 },
-    ratingMessages: [
-      {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        message: { type: String },
-        rating: { type: Number, min: 1, max: 5 },
-        createdAt: { type: Date, default: Date.now },
-      },
-    ],
-
-    receivedRequests: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" },
-    ],
   },
   { timestamps: true }
 );

@@ -12,15 +12,12 @@ const vendorRequestSchema = new mongoose.Schema(
       ref: "Vendor",
       required: true,
     },
-
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User.projects",
       required: true,
     },
-
     role: { type: String, required: true },
-
     location: {
       type: {
         type: String,
@@ -32,13 +29,8 @@ const vendorRequestSchema = new mongoose.Schema(
         required: true,
       },
     },
-
     description: { type: String, required: true },
-
-    startDateTime: {
-      type: Date,
-      required: true,
-    },
+    startDateTime: { type: Date, required: true },
     endDateTime: {
       type: Date,
       required: true,
@@ -49,7 +41,6 @@ const vendorRequestSchema = new mongoose.Schema(
         message: "End date/time must be after start date/time",
       },
     },
-
     vendorStatus: {
       type: String,
       enum: ["Pending", "Accepted", "Rejected"],
@@ -60,11 +51,9 @@ const vendorRequestSchema = new mongoose.Schema(
       enum: ["Pending", "Accepted", "Rejected"],
       default: "Pending",
     },
-
     budget: { type: Number },
     additionalDetails: { type: String },
 
-    // 🆕 Progress tracking for booked vendors
     progress: [
       {
         text: {
@@ -75,11 +64,16 @@ const vendorRequestSchema = new mongoose.Schema(
         done: { type: Boolean, default: false },
       },
     ],
+
+    // 🆕 Review Fields
+    rating: { type: Number, min: 1, max: 5 },
+    ratingMessage: { type: String },
   },
   { timestamps: true }
 );
 
 vendorRequestSchema.index({ location: "2dsphere" });
+
 vendorRequestSchema.pre("save", function (next) {
   if (
     this.vendorStatus === "Accepted" &&

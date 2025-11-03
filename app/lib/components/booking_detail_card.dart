@@ -9,6 +9,7 @@ class BookingDetailCard extends ConsumerStatefulWidget {
   final String name;
   final double rating;
   final String description;
+  final String vendorId;
   final String budget;
   final VoidCallback onClose;
   final String requestId;
@@ -16,6 +17,11 @@ class BookingDetailCard extends ConsumerStatefulWidget {
   final String userStatus;
   final bool actionCompleted;
   final Function(String) onActionCompleted;
+
+  final String projectName;
+  final String? startDate;
+  final String? endDate;
+  final dynamic location;
 
   const BookingDetailCard({
     super.key,
@@ -29,6 +35,11 @@ class BookingDetailCard extends ConsumerStatefulWidget {
     required this.userStatus,
     required this.actionCompleted,
     required this.onActionCompleted,
+    required this.vendorId,
+    required this.projectName,
+    this.startDate,
+    this.endDate,
+    this.location,
   });
 
   @override
@@ -91,7 +102,6 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
       );
       if (response.statusCode == 200 && accept) _fetchProgress();
       widget.onActionCompleted(widget.requestId);
-    } catch (_) {
     } finally {
       setState(() => _loading = false);
     }
@@ -107,13 +117,13 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
     setState(() => _reviewSubmitting = true);
     try {
       final userId = ref.read(userIdProvider);
-      final response = await http.post(
-        Uri.parse("$url/user/vendorrequest/${widget.requestId}/review"),
+      final response = await http.put(
+        Uri.parse("$url/user/vendorrequest/${widget.vendorId}/review"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "userId": userId,
+          "message": _reviewController.text.trim(),
           "rating": _reviewRating,
-          "review": _reviewController.text.trim(),
         }),
       );
       if (response.statusCode == 200) {
@@ -123,7 +133,6 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
         _reviewController.clear();
         setState(() => _reviewRating = 0.0);
       }
-    } catch (_) {
     } finally {
       setState(() => _reviewSubmitting = false);
     }
@@ -140,174 +149,126 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
     final size = MediaQuery.of(context).size;
 
     return SingleChildScrollView(
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 300),
-        opacity: 1,
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Center(
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: Color(0xFFFF4B7D),
-                      size: 50,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      "Your booking is confirmed!",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(
-                      "You’re all set for your event.",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-
-              // Vendor Info
-              Row(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.grey[200],
-                    child: const Icon(
-                      Icons.person,
-                      size: 30,
-                      color: Colors.grey,
+                  const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFFFF4B7D),
+                    size: 50,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Booking for ${widget.projectName}",
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 4),
+                  const Text(
+                    "You’re all set for your event.",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+            _detailRow("Vendor", widget.name),
+            _detailRow("Role", widget.role),
+            _detailRow("Event", widget.description),
+            _detailRow("Budget", "₹${widget.budget}"),
+            if (widget.startDate != null)
+              _detailRow("Start", widget.startDate!.split('T').first),
+            if (widget.endDate != null)
+              _detailRow("End", widget.endDate!.split('T').first),
+            _detailRow("Booking ID", widget.requestId),
+            const SizedBox(height: 16),
+
+            if (!widget.actionCompleted &&
+                widget.userStatus.toLowerCase() == "pending")
+              _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Text(
-                          widget.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
+                        _actionButton(
+                          "Reject",
+                          Colors.grey[300]!,
+                          Colors.black,
+                          () => _handleAction(false),
                         ),
-                        Text(
-                          widget.role,
-                          style: const TextStyle(color: Colors.grey),
+                        _actionButton(
+                          "Accept",
+                          const Color(0xFFFF4B7D),
+                          Colors.white,
+                          () => _handleAction(true),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
 
-              // Booking Details
-              const Divider(thickness: 1),
-              const Text(
-                "Booking Details",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              _detailRow("Event", widget.description),
-              _detailRow("Budget", "₹${widget.budget}"),
-              _detailRow("Booking ID", widget.requestId),
+            const SizedBox(height: 20),
 
-              const SizedBox(height: 20),
+            if (widget.userStatus.toLowerCase() == "accepted")
+              _progressLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildProgressTimeline(),
 
-              // Accept/Reject Buttons
-              if (!widget.actionCompleted &&
-                  widget.userStatus.toLowerCase() == "pending")
-                _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _actionButton(
-                            "Reject",
-                            Colors.grey[300]!,
-                            Colors.black,
-                            () => _handleAction(false),
-                          ),
-                          _actionButton(
-                            "Accept",
-                            const Color(0xFFFF4B7D),
-                            Colors.white,
-                            () => _handleAction(true),
-                          ),
-                        ],
-                      ),
-
-              const SizedBox(height: 20),
-
-              // Booking Status Timeline
-              if (widget.userStatus.toLowerCase() == "accepted")
-                _progressLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildProgressTimeline(),
-
-              const SizedBox(height: 24),
-
-              // Review System
-              const Divider(thickness: 1.2),
-              const Text(
-                "Write A Review",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              _buildStarRating(),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _reviewController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: "Write your review...",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            const Divider(thickness: 1.2),
+            const Text(
+              "Write A Review",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            _buildStarRating(),
+            TextField(
+              controller: _reviewController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: "Write your review...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              const SizedBox(height: 10),
-              _reviewSubmitting
-                  ? const Center(child: CircularProgressIndicator())
-                  : SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _submitReview,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF4B7D),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          "Submit Review",
-                          style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            _reviewSubmitting
+                ? const Center(child: CircularProgressIndicator())
+                : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submitReview,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF4B7D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      child: const Text(
+                        "Submit Review",
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
-            ],
-          ),
+                  ),
+          ],
         ),
       ),
     );
@@ -317,12 +278,14 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       children: [
-        Text("$title: ", style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(
+          "$title: ",
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(color: Colors.black87),
-            overflow: TextOverflow.visible,
+            style: const TextStyle(color: Colors.black87, fontSize: 15),
           ),
         ),
       ],
@@ -346,96 +309,17 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
 
   Widget _buildProgressTimeline() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Divider(thickness: 1.2),
-      const Text(
-        "Booking Status",
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 16),
-      Column(
-        children: _progressSteps.asMap().entries.map((entry) {
-          final index = entry.key;
-          final step = entry.value;
-          final isDone = step["done"] == true;
-          final isLast = index == _progressSteps.length - 1;
-
-          IconData stepIcon;
-          switch (index) {
-            case 0:
-              stepIcon = Icons.event_available_outlined;
-              break;
-            case 1:
-              stepIcon = Icons.directions_walk_outlined;
-              break;
-            case 2:
-              stepIcon = Icons.celebration_outlined;
-              break;
-            default:
-              stepIcon = Icons.radio_button_unchecked;
-          }
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: isDone
-                          ? const Color(0xFFFF4B7D)
-                          : Colors.grey.shade200,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        if (isDone)
-                          BoxShadow(
-                            color: const Color(0xFFFF4B7D).withOpacity(0.3),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          ),
-                      ],
-                    ),
-                    child: Icon(
-                      isDone ? Icons.check : stepIcon,
-                      size: 28,
-                      color: isDone ? Colors.white : const Color(0xFFFF4B7D),
-                    ),
-                  ),
-                  if (!isLast)
-                    Container(
-                      width: 3,
-                      height: 45,
-                      color: isDone
-                          ? const Color(0xFFFF4B7D)
-                          : Colors.grey.shade300,
-                    ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _updateProgress(step["text"], !isDone),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      step["text"],
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: isDone ? Colors.black : Colors.grey.shade700,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    ],
+    children: _progressSteps.map((step) {
+      final isDone = step["done"] == true;
+      return ListTile(
+        leading: Icon(
+          isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+          color: isDone ? const Color(0xFFFF4B7D) : Colors.grey,
+        ),
+        title: Text(step["text"]),
+        onTap: () => _updateProgress(step["text"], !isDone),
+      );
+    }).toList(),
   );
 
   Widget _buildStarRating() => Row(
@@ -447,9 +331,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
           color: Colors.amber,
           size: 30,
         ),
-        onPressed: () {
-          setState(() => _reviewRating = (index + 1).toDouble());
-        },
+        onPressed: () => setState(() => _reviewRating = (index + 1).toDouble()),
       );
     }),
   );

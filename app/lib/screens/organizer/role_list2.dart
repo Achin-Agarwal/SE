@@ -25,8 +25,9 @@ class _RoleList2State extends ConsumerState<RoleList2> {
   List<Map<String, dynamic>> roles = [];
   Map<String, dynamic>? selectedVendor;
   bool isLoading = true;
-
   Set<String> completedRequests = {};
+
+  String? projectName;
 
   @override
   void initState() {
@@ -38,48 +39,55 @@ class _RoleList2State extends ConsumerState<RoleList2> {
     setState(() => isLoading = true);
 
     final userId = ref.read(userIdProvider);
-
-    final urls = Uri.parse(
-      "$url/user/$userId/accepted/${widget.projectId}",
-    );
+    final urls = Uri.parse("$url/user/$userId/accepted/${widget.projectId}");
 
     try {
       final response = await http.get(urls);
-
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        print(data);
+
+        final List requests = data["requests"] ?? [];
+        projectName = data["project"]?["name"] ?? "Untitled Project";
 
         setState(() {
-          roles = data
-              .where((req) =>
-                  req["role"].toString().toLowerCase() ==
-                  widget.selectedRole?.toLowerCase())
+          roles = requests
+              .where(
+                (req) =>
+                    req["role"].toString().toLowerCase() ==
+                    widget.selectedRole?.toLowerCase(),
+              )
               .map((req) {
-            final vendor = req["vendor"];
-            final vendorStatus = req["vendorStatus"];
+                final vendor = req["vendor"];
+                final vendorStatus = req["vendorStatus"];
+                final status = vendorStatus?.toLowerCase() == "pending"
+                    ? "Requested"
+                    : "Accepted";
 
-            final status = vendorStatus?.toLowerCase() == "pending"
-                ? "Requested"
-                : "Accepted";
+                return {
+                  'requestId': req["_id"],
+                  'vendorId': vendor["_id"],
+                  'name': vendor["name"] ?? "Unknown",
+                  'description': req["description"] ?? "No description",
+                  'rating': (vendor["rating"] ?? 0).toDouble(),
+                  'status': status,
+                  'statusColor': status == "Accepted"
+                      ? const Color(0xFFFF4B7D)
+                      : Colors.grey,
+                  'budget': req["budget"]?.toString() ?? "N/A",
+                  'email': vendor["email"],
+                  'phone': vendor["phone"],
+                  'role': vendor["role"],
+                  'userStatus': req["userStatus"]?.toString() ?? "pending",
+                  'projectId': data["project"]["_id"],
+                  'projectName': data["project"]["name"],
+                  'startDate': req["startDateTime"],
+                  'endDate': req["endDateTime"],
+                  'location': req["location"],
+                };
+              })
+              .toList();
 
-            return {
-              'requestId': req["_id"],
-              'name': vendor["name"] ?? "Unknown",
-              'description': req["additionalDetails"] ?? "No description",
-              'rating': (vendor["rating"] ?? 0).toDouble(),
-              'status': status,
-              'statusColor': status == "Accepted"
-                  ? const Color(0xFFFF4B7D)
-                  : Colors.grey,
-              'budget': req["budget"]?.toString() ?? "N/A",
-              'email': vendor["email"],
-              'phone': vendor["phone"],
-              'role': vendor["role"],
-              'userStatus': req["userStatus"]?.toString() ?? "pending",
-            };
-          }).toList();
-
-          /// ✅ Sort — Accepted first
           roles.sort((a, b) {
             if (a['status'] == b['status']) return 0;
             if (a['status'] == 'Accepted') return -1;
@@ -130,14 +138,20 @@ class _RoleList2State extends ConsumerState<RoleList2> {
           ? BookingDetailCard(
               key: ValueKey(selectedVendor!['requestId']),
               name: selectedVendor!['name'],
+              vendorId: selectedVendor!['vendorId'],
               rating: selectedVendor!['rating'],
               description: selectedVendor!['description'],
               budget: selectedVendor!['budget'],
               requestId: selectedVendor!['requestId'],
               role: selectedVendor!['role'],
               userStatus: selectedVendor!['userStatus'],
-              actionCompleted:
-                  completedRequests.contains(selectedVendor!['requestId']),
+              projectName: selectedVendor!['projectName'],
+              startDate: selectedVendor!['startDate'],
+              endDate: selectedVendor!['endDate'],
+              location: selectedVendor!['location'],
+              actionCompleted: completedRequests.contains(
+                selectedVendor!['requestId'],
+              ),
               onClose: () => setState(() => selectedVendor = null),
               onActionCompleted: markRequestCompleted,
             )
