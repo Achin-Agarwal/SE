@@ -309,17 +309,94 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
 
   Widget _buildProgressTimeline() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: _progressSteps.map((step) {
-      final isDone = step["done"] == true;
-      return ListTile(
-        leading: Icon(
-          isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: isDone ? const Color(0xFFFF4B7D) : Colors.grey,
-        ),
-        title: Text(step["text"]),
-        onTap: () => _updateProgress(step["text"], !isDone),
-      );
-    }).toList(),
+    children: [
+      const Divider(thickness: 1.2),
+      const Text(
+        "Booking Status",
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      const SizedBox(height: 16),
+      Column(
+        children: _progressSteps.asMap().entries.map((entry) {
+          final index = entry.key;
+          final step = entry.value;
+          final isDone = step["done"] == true;
+          final isLast = index == _progressSteps.length - 1;
+          IconData stepIcon;
+          switch (index) {
+            case 0:
+              stepIcon = Icons.event_available_outlined;
+              break;
+            case 1:
+              stepIcon = Icons.directions_walk_outlined;
+              break;
+            case 2:
+              stepIcon = Icons.celebration_outlined;
+              break;
+            default:
+              stepIcon = Icons.radio_button_unchecked;
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: isDone
+                          ? const Color(0xFFFF4B7D)
+                          : Colors.grey.shade200,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        if (isDone)
+                          BoxShadow(
+                            color: const Color(0xFFFF4B7D).withOpacity(0.3),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                      ],
+                    ),
+                    child: Icon(
+                      isDone ? Icons.check : stepIcon,
+                      size: 28,
+                      color: isDone ? Colors.white : const Color(0xFFFF4B7D),
+                    ),
+                  ),
+                  if (!isLast)
+                    Container(
+                      width: 3,
+                      height: 45,
+                      color: isDone
+                          ? const Color(0xFFFF4B7D)
+                          : Colors.grey.shade300,
+                    ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _updateProgress(step["text"], !isDone),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      step["text"],
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: isDone ? Colors.black : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    ],
   );
 
   Widget _buildStarRating() => Row(

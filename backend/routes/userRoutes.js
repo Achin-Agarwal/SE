@@ -508,19 +508,19 @@ router.get(
     })
       .populate("vendor", "name role rating description email phone")
       .lean();
-    const requestsWithProject = requests.map((req) => ({
-      ...req,
-      project: {
-        _id: project._id,
-        name: project.name,
-      },
-    }));
+    // const requestsWithProject = requests.map((req) => ({
+    //   ...req,
+    //   project: {
+    //     _id: project._id,
+    //     name: project.name,
+    //   },
+    // }));
     res.json({
       project: {
         _id: project._id,
         name: project.name,
       },
-      requests: requestsWithProject,
+      requests: requests,
     });
   })
 );
