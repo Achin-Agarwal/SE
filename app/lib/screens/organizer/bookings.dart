@@ -112,7 +112,7 @@ class _BookingsState extends ConsumerState<Bookings> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Ongoing Deals',
+                'Deals',
                 style: TextStyle(
                   fontSize: size.width * 0.06,
                   fontWeight: FontWeight.bold,

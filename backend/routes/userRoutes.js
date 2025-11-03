@@ -503,8 +503,8 @@ router.get(
     const requests = await VendorRequest.find({
       user: userId,
       project: projectId,
-      userStatus: { $ne: "Accepted" },
-      vendorStatus: { $ne: "Accepted" },
+      userStatus: "Accepted",
+      vendorStatus: "Accepted",
     })
       .populate("vendor", "name role rating description email phone")
       .lean();
