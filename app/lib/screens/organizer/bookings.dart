@@ -36,8 +36,7 @@ class _BookingsState extends ConsumerState<Bookings> {
   /// ✅ Load saved project from provider
   void _loadInitialProject() {
     final savedId = ref.read(projectIdProvider);
-    final savedName = ref.read(projectNameProvider);
-    if (savedId != null && savedName != null) {
+    if (savedId != null) {
       setState(() {
         selectedProjectId = savedId;
       });

@@ -1,10 +1,7 @@
-import 'dart:convert';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/detail_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'package:app/providers/userid.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 

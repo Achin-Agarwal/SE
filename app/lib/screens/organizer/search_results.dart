@@ -107,12 +107,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     final dateMap = ref.read(dateProvider);
     final description = ref.read(descriptionProvider);
 
-    if (userId == null ||
-        projectId == null ||
-        location == null ||
+    if (projectId == null ||
         dateMap['start'] == null ||
-        dateMap['end'] == null ||
-        description == null) {
+        dateMap['end'] == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(

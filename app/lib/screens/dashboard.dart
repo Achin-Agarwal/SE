@@ -4,7 +4,6 @@ import 'package:app/screens/login.dart';
 import 'package:app/screens/organizer/cart.dart';
 import 'package:app/screens/organizer/bookings.dart';
 import 'package:app/screens/organizer/home.dart';
-import 'package:app/screens/organizer/profile.dart';
 import 'package:app/screens/organizer/search_screen.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';

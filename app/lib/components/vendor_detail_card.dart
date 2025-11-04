@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:app/url.dart';
+import 'package:app/utils/launch_dialer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -15,6 +17,7 @@ class VendorDetailCard extends ConsumerStatefulWidget {
   final String userStatus;
   final bool actionCompleted;
   final Function(String) onActionCompleted;
+  final String? phone;
 
   const VendorDetailCard({
     super.key,
@@ -28,6 +31,7 @@ class VendorDetailCard extends ConsumerStatefulWidget {
     required this.userStatus,
     required this.actionCompleted,
     required this.onActionCompleted,
+    this.phone,
   });
 
   @override
@@ -44,7 +48,7 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
       final userId = ref.read(userIdProvider);
 
       final response = await http.post(
-        Uri.parse("https://achin-se-9kiip.ondigitalocean.app/user/acceptoffer"),
+        Uri.parse("$url/user/acceptoffer"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "requestId": widget.requestId,
@@ -53,7 +57,6 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
           "accept": accept,
         }),
       );
-
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -164,6 +167,28 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
               ),
             ),
             SizedBox(height: size.height * 0.015),
+            if (widget.phone != null && widget.phone!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: GestureDetector(
+                  onTap: () => launchDialer(context, widget.phone!),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.phone, color: Colors.green, size: 20),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.phone!,
+                        style: TextStyle(
+                          fontSize: size.width * 0.04,
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Text(
               widget.description,
               style: TextStyle(

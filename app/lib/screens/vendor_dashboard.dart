@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:app/utils/date_utils.dart';
+import 'package:app/utils/launch_dialer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/screens/login.dart';
@@ -30,7 +31,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
-      if (vendorId == null || token == null) {
+      if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Session expired. Please log in again."),
@@ -367,6 +368,40 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
                                         fontSize: 13,
                                       ),
                                     ),
+                                    if (user['phone'] != null &&
+                                        user['phone']
+                                            .toString()
+                                            .trim()
+                                            .isNotEmpty)
+                                      GestureDetector(
+                                        onTap: () => launchDialer(
+                                          context,
+                                          user['phone'].toString(),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 4.0,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Ionicons.call_outline,
+                                                color: Colors.green,
+                                                size: 16,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                user['phone'].toString(),
+                                                style: const TextStyle(
+                                                  color: Colors.blueAccent,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),

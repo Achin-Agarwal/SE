@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:app/components/image_popup.dart';
 
 class VendorDetailCard extends StatelessWidget {
   final Map<String, dynamic> vendor;

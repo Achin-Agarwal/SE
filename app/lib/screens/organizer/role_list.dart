@@ -144,6 +144,7 @@ class _RoleListState extends ConsumerState<RoleList> {
               actionCompleted: completedRequests.contains(
                 selectedVendor!['requestId'],
               ),
+              phone: selectedVendor!['phone'],
               onClose: () => setState(() => selectedVendor = null),
               onActionCompleted: markRequestCompleted,
             )
