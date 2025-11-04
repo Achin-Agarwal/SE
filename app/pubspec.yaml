@@ -47,6 +47,7 @@ dependencies:
   get: ^4.7.2
   intl: ^0.20.2
   url_launcher: ^6.3.2
+  percent_indicator: ^4.2.5
 
 dev_dependencies:
   flutter_test:

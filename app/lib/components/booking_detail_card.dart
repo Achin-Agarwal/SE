@@ -200,7 +200,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
     try {
       final userId = ref.read(userIdProvider);
       final response = await http.put(
-        Uri.parse("$url/user/vendorrequest/${widget.vendorId}/review"),
+        Uri.parse("$url/user/vendorrequest/${widget.requestId}/review"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "userId": userId,
@@ -208,6 +208,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
           "rating": _reviewRating,
         }),
       );
+      print(response.body);
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Review submitted successfully!")),
@@ -309,7 +310,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
                 border: Border.all(color: Colors.grey[500]!),
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: size.width * 0.03,
+                horizontal: size.width * 0.02,
                 vertical: size.height * 0.015,
               ),
               child: Row(
@@ -545,21 +546,21 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: 50,
-                    height: 50,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: isDone
                           ? const Color(0xFFFF4B7D)
                           : Colors.grey.shade200,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        if (isDone)
-                          BoxShadow(
-                            color: const Color(0xFFFF4B7D).withOpacity(0.3),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          ),
-                      ],
+                      // boxShadow: [
+                      //   if (isDone)
+                      //     BoxShadow(
+                      //       color: const Color(0xFFFF4B7D).withOpacity(0.3),
+                      //       blurRadius: 8,
+                      //       spreadRadius: 2,
+                      //     ),
+                      // ],
                     ),
                     child: Icon(
                       isDone ? Icons.check : stepIcon,
@@ -582,7 +583,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
                 child: GestureDetector(
                   onTap: () => _updateProgress(step["text"], !isDone),
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       step["text"],
                       style: TextStyle(

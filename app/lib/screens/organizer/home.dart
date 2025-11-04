@@ -7,6 +7,8 @@ import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
 
 class Home extends ConsumerStatefulWidget {
   const Home({super.key});
@@ -69,9 +71,9 @@ class _HomeState extends ConsumerState<Home> {
         ref.read(projectNameProvider.notifier).state = name;
         ref.read(navIndexProvider.notifier).state = 1;
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to create project')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to create project')),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -84,7 +86,6 @@ class _HomeState extends ConsumerState<Home> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        // <-- use dialogCtx
         title: const Text('Create New Project'),
         content: TextField(
           controller: projectNameController,
@@ -93,7 +94,7 @@ class _HomeState extends ConsumerState<Home> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(dialogCtx).pop(); // <-- use dialogCtx
+              Navigator.of(dialogCtx).pop();
             },
             child: const Text('Cancel'),
           ),
@@ -101,7 +102,7 @@ class _HomeState extends ConsumerState<Home> {
             onPressed: () {
               if (projectNameController.text.trim().isNotEmpty) {
                 createProject(projectNameController.text.trim());
-                Navigator.of(dialogCtx).pop(); // <-- move pop here
+                Navigator.of(dialogCtx).pop();
               }
             },
             child: const Text('Create'),
@@ -109,6 +110,34 @@ class _HomeState extends ConsumerState<Home> {
         ],
       ),
     );
+  }
+
+  double calculateProgress(Map<String, dynamic> project) {
+    final aiPoints = project['aiPoints'] as List?;
+    if (aiPoints != null && aiPoints.isNotEmpty) {
+      final total = aiPoints.length;
+      final done = aiPoints.where((e) => e['done'] == true).length;
+      return total == 0 ? 0.0 : done / total;
+    }
+
+    // Else, calculate from vendors' progress (sentRequests)
+    // final sentRequests = project['sentRequests'] as List?;
+    // if (sentRequests == null || sentRequests.isEmpty) return 0.0;
+
+    // int totalPoints = 0;
+    // int donePoints = 0;
+
+    // for (final req in sentRequests) {
+    //   final vendor = req['vendor'];
+    //   if (vendor != null && vendor['progress'] != null) {
+    //     final progressList = vendor['progress'] as List;
+    //     totalPoints += progressList.length;
+    //     donePoints += progressList.where((p) => p['done'] == true).length;
+    //   }
+    // }
+
+    // if (totalPoints == 0) return 0.0;
+    return 0.0;
   }
 
   @override
@@ -130,28 +159,85 @@ class _HomeState extends ConsumerState<Home> {
                         itemCount: projects.length,
                         itemBuilder: (ctx, index) {
                           final project = projects[index];
+                          final name = project['name'] ?? 'Unnamed Project';
+                          final sentRequests = project['sentRequests'] as List?;
+                          String dateStr = '';
+                          String timeStr = '';
+
+                          if (sentRequests != null && sentRequests.isNotEmpty) {
+                            final vendor = sentRequests[0]['vendor'];
+                            if (vendor != null &&
+                                vendor['startDateTime'] != null) {
+                              final startDateTime = DateTime.parse(
+                                vendor['startDateTime'],
+                              );
+                              dateStr = DateFormat(
+                                'dd/MM/yyyy',
+                              ).format(startDateTime);
+                              timeStr = DateFormat(
+                                'HH:mm',
+                              ).format(startDateTime);
+                            }
+                          }
+
+                          final progress = calculateProgress(project);
+                          final percentValue = (progress * 100).toInt();
+
                           return Card(
                             margin: const EdgeInsets.symmetric(
                               vertical: 8,
                               horizontal: 16,
                             ),
-                            elevation: 3,
+                            elevation: 2,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                               title: Text(
-                                project['name'] ?? 'Unnamed Project',
+                                name,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
                               ),
-                              subtitle: Text(
-                                'Requests: ${project['sentRequests']?.length ?? 0}',
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (dateStr.isNotEmpty)
+                                    Text(
+                                      dateStr,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  if (timeStr.isNotEmpty)
+                                    Text(
+                                      timeStr,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                ],
                               ),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                size: 18,
+                              trailing: CircularPercentIndicator(
+                                radius: 24.0,
+                                lineWidth: 4.0,
+                                percent: progress.clamp(0.0, 1.0),
+                                center: Text(
+                                  '$percentValue%',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                progressColor: Colors.pinkAccent,
+                                backgroundColor: Colors.grey.shade300,
                               ),
                               onTap: () {
                                 Navigator.push(

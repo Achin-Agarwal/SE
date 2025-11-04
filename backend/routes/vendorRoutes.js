@@ -251,19 +251,19 @@ router.post(
       }
 
       // ✅ Check if user has already accepted any vendor offer
-      const userAccepted = await VendorRequest.findOne({
-        user: request.user,
-        role: request.role,
-        userStatus: "Accepted",
-      });
+      // const userAccepted = await VendorRequest.findOne({
+      //   user: request.user,
+      //   role: request.role,
+      //   userStatus: "Accepted",
+      // });
 
-      if (userAccepted) {
-        return res.error(
-          403,
-          "User has already accepted another offer. You cannot respond to this request.",
-          "USER_ALREADY_ACCEPTED"
-        );
-      }
+      // if (userAccepted) {
+      //   return res.error(
+      //     403,
+      //     "User has already accepted another offer. You cannot respond to this request.",
+      //     "USER_ALREADY_ACCEPTED"
+      //   );
+      // }
 
       // ✅ If vendor rejects
       if (action === "reject") {

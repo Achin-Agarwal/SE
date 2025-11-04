@@ -53,7 +53,6 @@ const vendorRequestSchema = new mongoose.Schema(
     },
     budget: { type: Number },
     additionalDetails: { type: String },
-
     progress: [
       {
         text: {
@@ -64,8 +63,6 @@ const vendorRequestSchema = new mongoose.Schema(
         done: { type: Boolean, default: false },
       },
     ],
-
-    // 🆕 Review Fields
     rating: { type: Number, min: 1, max: 5 },
     ratingMessage: { type: String },
   },
