@@ -81,16 +81,16 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
               color: Colors.grey,
             ),
           ),
-          GestureDetector(
-            onTap: () async {
-              if (await canLaunchUrl(Uri.parse(url))) {
-                await launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                );
-              }
-            },
-            child: Flexible(
+          Flexible(
+            child: GestureDetector(
+              onTap: () async {
+                if (await canLaunchUrl(Uri.parse(url))) {
+                  await launchUrl(
+                    Uri.parse(url),
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+              },
               child: Text(
                 "${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}",
                 textAlign: TextAlign.right,
@@ -134,11 +134,19 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"text": text, "done": done}),
       );
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() => _progressSteps = data['progress']);
+        final updatedSteps = data['progress'] ?? [];
+
+        setState(() {
+          _progressSteps = updatedSteps;
+          _allStepsDone = updatedSteps.every((step) => step["done"] == true);
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("Error updating progress: $e");
+    }
   }
 
   Map<String, String> _formatDateAndTime(String start, String end) {
@@ -196,7 +204,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "userId": userId,
-          "message": _reviewController.text.trim() || "",
+          "message": _reviewController.text.trim(),
           "rating": _reviewRating,
         }),
       );
