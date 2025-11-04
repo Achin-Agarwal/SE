@@ -706,4 +706,16 @@ router.put("/vendorrequest/:id/review", async (req, res) => {
   }
 });
 
+router.get("/vendorrequest/:requestId/reviewstatus", async (req, res) => {
+  const { requestId } = req.params;
+  const { userId } = req.query;
+
+  const request = await VendorRequest.findById(requestId);
+  if (!request) return res.status(404).json({ error: "Request not found" });
+
+  const reviewExists = await Review.findOne({ userId, vendorId: request.vendorId });
+  res.json({ reviewSubmitted: !!reviewExists });
+});
+
+
 export default router;
