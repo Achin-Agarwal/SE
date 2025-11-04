@@ -60,34 +60,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     fetchProjects();
   }
 
-  Future<void> fetchDisabledRoles() async {
-    if (selectedProject == null || selectedProject?['id'] == null) return;
-    try {
-      final userId = ref.read(userIdProvider);
-      final projectId = selectedProject!['id'];
-      final apiUrl = Uri.parse('$url/user/accepted-roles/$userId/$projectId');
-      final response = await http.get(apiUrl);
+  // Future<void> fetchDisabledRoles() async {
+  //   if (selectedProject == null || selectedProject?['id'] == null) return;
+  //   try {
+  //     final userId = ref.read(userIdProvider);
+  //     final projectId = selectedProject!['id'];
+  //     final apiUrl = Uri.parse('$url/user/accepted-roles/$userId/$projectId');
+  //     final response = await http.get(apiUrl);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          disabledRoles = List<String>.from(data['roles'] ?? []);
-          if (selectedRole != null && disabledRoles.contains(selectedRole)) {
-            selectedRole = null;
-          }
-        });
-      } else {
-        setState(() {
-          disabledRoles = [];
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching disabled roles: $e');
-      setState(() {
-        disabledRoles = [];
-      });
-    }
-  }
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body);
+  //       setState(() {
+  //         disabledRoles = List<String>.from(data['roles'] ?? []);
+  //         if (selectedRole != null && disabledRoles.contains(selectedRole)) {
+  //           selectedRole = null;
+  //         }
+  //       });
+  //     } else {
+  //       setState(() {
+  //         disabledRoles = [];
+  //       });
+  //     }
+  //   } catch (e) {
+  //     debugPrint('Error fetching disabled roles: $e');
+  //     setState(() {
+  //       disabledRoles = [];
+  //     });
+  //   }
+  // }
 
   Future<void> _selectStartDateTime(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
@@ -168,7 +168,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             setState(() {
               selectedProject = matchedProject;
             });
-            await fetchDisabledRoles();
+            // await fetchDisabledRoles();
             _saveToProviders();
           }
         }
@@ -302,7 +302,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     setState(() {
                       selectedProject = value;
                     });
-                    await fetchDisabledRoles();
+                    // await fetchDisabledRoles();
                   },
                   items: projects
                       .map(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/utils/date_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/screens/login.dart';
@@ -6,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:app/providers/userid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:app/components/vendor_booking_detail_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class VendorDashboard extends ConsumerStatefulWidget {
   const VendorDashboard({super.key});
@@ -52,6 +55,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
+        print(decoded);
         if (decoded is List) {
           setState(() {
             _requests = decoded.whereType<Map<String, dynamic>>().toList();
@@ -196,14 +200,59 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
     }
   }
 
-  String _formatDate(String? isoString) {
-    try {
-      if (isoString == null) return "—";
-      final date = DateTime.parse(isoString);
-      return "${date.day}-${date.month}-${date.year}";
-    } catch (_) {
-      return "—";
+  Widget _locationRow(Map<String, dynamic>? location) {
+    final coords = location?["coordinates"];
+    if (coords == null || coords.length != 2) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 4),
+        child: Text(
+          "📍 Location: Not available",
+          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+        ),
+      );
     }
+
+    final longitude = coords[0];
+    final latitude = coords[1];
+    final url = "https://www.google.com/maps?q=$latitude,$longitude";
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Ionicons.location_outline,
+            size: 18,
+            color: Colors.black87,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: GestureDetector(
+              onTap: () async {
+                if (await canLaunchUrl(Uri.parse(url))) {
+                  await launchUrl(
+                    Uri.parse(url),
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+              },
+              child: Text(
+                "Location: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}",
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+                softWrap: true,
+                overflow: TextOverflow.visible,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -340,44 +389,227 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
                               Text("Role: ${req['role'] ?? '—'}"),
                             ],
                           ),
-                          // Row(
-                          //   children: [
-                          //     const Icon(Ionicons.location_outline, size: 18),
-                          //     const SizedBox(width: 6),
-                          //     Text("Location: ${req['location'] ?? '—'}"),
-                          //   ],
-                          // ),
-                          Row(
-                            children: [
-                              const Icon(Ionicons.calendar_outline, size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                "Event Date: ${_formatDate(req['eventDate'])}",
-                              ),
-                            ],
-                          ),
+                          _locationRow(req['location']),
+                          if (req['startDateTime'] != null &&
+                              req['endDateTime'] != null)
+                            Builder(
+                              builder: (_) {
+                                final dateTime = formatDateAndTime(
+                                  req['startDateTime'],
+                                  req['endDateTime'],
+                                );
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Ionicons.calendar_outline,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text("Date: ${dateTime['date']}"),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Ionicons.time_outline,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text("Time: ${dateTime['time']}"),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           const SizedBox(height: 8),
-                          Text("📝 ${req['description'] ?? '—'}"),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  offset: const Offset(0, 2),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Ionicons.document_text_outline,
+                                      size: 18,
+                                      color: Colors.black54,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        req['description'] != null &&
+                                                req['description']
+                                                    .toString()
+                                                    .trim()
+                                                    .isNotEmpty
+                                            ? req['description'].toString()
+                                            : 'No description provided',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Color(0xFF333333),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Ionicons.cash_outline,
+                                      size: 18,
+                                      color: Colors.black54,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      (req['budget'] != null &&
+                                              req['budget']
+                                                  .toString()
+                                                  .trim()
+                                                  .isNotEmpty)
+                                          ? '₹${req['budget']}'
+                                          : '—',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFE91E63),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    if (req['budget'] != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Offered',
+                                          style: TextStyle(
+                                            color: Colors.green,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                if ((req['additionalDetails'] ?? '')
+                                    .toString()
+                                    .trim()
+                                    .isNotEmpty)
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Ionicons.chatbubble_ellipses_outline,
+                                        size: 18,
+                                        color: Colors.black54,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          req['additionalDetails'].toString(),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF444444),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 10),
 
-                          if (vendorStatus == "Accepted")
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("💰 Budget: ₹${req['budget'] ?? '—'}"),
-                                  Text(
-                                    "📋 Details: ${req['additionalDetails'] ?? '—'}",
+                          if (vendorStatus == "Accepted" &&
+                              userStatus == "Accepted")
+                            GestureDetector(
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => DraggableScrollableSheet(
+                                    initialChildSize: 0.9,
+                                    maxChildSize: 0.95,
+                                    minChildSize: 0.5,
+                                    expand: false,
+                                    builder: (context, scrollController) {
+                                      return VendorBookingDetailCard(
+                                        requestId: req['_id'] ?? '',
+                                        userName:
+                                            user['name'] ?? 'Unknown User',
+                                        userEmail: user['email'] ?? 'No email',
+                                        budget:
+                                            req['budget']?.toString() ?? '—',
+                                        description: req['description'] ?? '—',
+                                        role: req['role'] ?? '—',
+                                        location: req['location'],
+                                        startDateTime: req['startDateTime'],
+                                        endDateTime: req['endDateTime'],
+                                        scrollController: scrollController,
+                                        rating:
+                                            req['rating']?.toDouble() ?? 0.0,
+                                        ratingMessage:
+                                            req['ratingMessage'] ?? '',
+                                      );
+                                    },
                                   ),
-                                ],
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Ionicons.eye_outline,
+                                      color: Colors.green,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      "View Booking Details",
+                                      style: TextStyle(
+                                        color: Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-
                           const SizedBox(height: 12),
                           if (userStatus == "Pending")
                             Row(

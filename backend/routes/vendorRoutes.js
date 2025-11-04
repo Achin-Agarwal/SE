@@ -306,4 +306,9 @@ router.post(
   })
 );
 
+router.get(
+  "/:vendorId/profile",
+  safeHandler(async (req, res) => {})
+);
+
 export default router;

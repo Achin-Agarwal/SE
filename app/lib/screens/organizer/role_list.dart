@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:app/components/role_item_card.dart';
 import 'package:app/components/vendor_detail_card.dart';
+import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -39,45 +40,49 @@ class _RoleListState extends ConsumerState<RoleList> {
     final userId = ref.read(userIdProvider);
 
     /// ✅ Updated API endpoint to fetch by project
-    final url = Uri.parse(
-      "https://achin-se-9kiip.ondigitalocean.app/user/$userId/requests/${widget.projectId}",
+    final urls = Uri.parse(
+      "$url/user/$userId/requests/${widget.projectId}",
     );
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(urls);
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
+        print("User requests data: $data");
 
         setState(() {
           roles = data
-              .where((req) =>
-                  req["role"].toString().toLowerCase() ==
-                  widget.selectedRole?.toLowerCase())
+              .where(
+                (req) =>
+                    req["role"].toString().toLowerCase() ==
+                    widget.selectedRole?.toLowerCase(),
+              )
               .map((req) {
-            final vendor = req["vendor"];
-            final vendorStatus = req["vendorStatus"];
+                final vendor = req["vendor"];
+                final vendorStatus = req["vendorStatus"];
 
-            final status = vendorStatus?.toLowerCase() == "pending"
-                ? "Requested"
-                : "Accepted";
+                final status = vendorStatus?.toLowerCase() == "pending"
+                    ? "Requested"
+                    : "Accepted";
 
-            return {
-              'requestId': req["_id"],
-              'name': vendor["name"] ?? "Unknown",
-              'description': req["additionalDetails"] ?? "No description",
-              'rating': (vendor["rating"] ?? 0).toDouble(),
-              'status': status,
-              'statusColor': status == "Accepted"
-                  ? const Color(0xFFFF4B7D)
-                  : Colors.grey,
-              'budget': req["budget"]?.toString() ?? "N/A",
-              'email': vendor["email"],
-              'phone': vendor["phone"],
-              'role': vendor["role"],
-              'userStatus': req["userStatus"]?.toString() ?? "pending",
-            };
-          }).toList();
+                return {
+                  'requestId': req["_id"],
+                  'name': vendor["name"] ?? "Unknown",
+                  'description': req["additionalDetails"] ?? "No description",
+                  'rating': (vendor["rating"] ?? 0).toDouble(),
+                  'status': status,
+                  'statusColor': status == "Accepted"
+                      ? const Color(0xFFFF4B7D)
+                      : Colors.grey,
+                  'budget': req["budget"]?.toString() ?? "N/A",
+                  'email': vendor["email"],
+                  'phone': vendor["phone"],
+                  'role': vendor["role"],
+                  'userStatus': req["userStatus"]?.toString() ?? "pending",
+                };
+              })
+              .toList();
 
           /// ✅ Sort — Accepted first
           roles.sort((a, b) {
@@ -136,8 +141,9 @@ class _RoleListState extends ConsumerState<RoleList> {
               requestId: selectedVendor!['requestId'],
               role: selectedVendor!['role'],
               userStatus: selectedVendor!['userStatus'],
-              actionCompleted:
-                  completedRequests.contains(selectedVendor!['requestId']),
+              actionCompleted: completedRequests.contains(
+                selectedVendor!['requestId'],
+              ),
               onClose: () => setState(() => selectedVendor = null),
               onActionCompleted: markRequestCompleted,
             )

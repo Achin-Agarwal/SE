@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:app/utils/date_utils.dart';
+import 'package:app/utils/detail_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:app/providers/userid.dart';
 import 'package:app/url.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BookingDetailCard extends ConsumerStatefulWidget {
@@ -61,7 +62,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
   Widget _locationRow(Map<String, dynamic>? location) {
     final coords = location?["coordinates"];
     if (coords == null || coords.length != 2) {
-      return _detailRow("Location", "Not available");
+      return detailRow("Location", "Not available");
     }
 
     final longitude = coords[0];
@@ -146,25 +147,6 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
       }
     } catch (e) {
       debugPrint("Error updating progress: $e");
-    }
-  }
-
-  Map<String, String> _formatDateAndTime(String start, String end) {
-    try {
-      final startDT = DateTime.parse(start).toLocal();
-      final endDT = DateTime.parse(end).toLocal();
-
-      final dateFormat = DateFormat('dd/MM/yy');
-      final timeFormat = DateFormat('h:mm a');
-
-      final dateRange =
-          "${dateFormat.format(startDT)} - ${dateFormat.format(endDT)}";
-      final timeRange =
-          "${timeFormat.format(startDT)} - ${timeFormat.format(endDT)}";
-
-      return {"date": dateRange, "time": timeRange};
-    } catch (e) {
-      return {"date": "Invalid", "time": "Invalid"};
     }
   }
 
@@ -359,26 +341,26 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
               ),
             ),
             SizedBox(height: size.height * 0.015),
-            _detailRow("Event", widget.description),
-            _detailRow("Budget", "₹${widget.budget}"),
+            detailRow("Event", widget.description),
+            detailRow("Budget", "₹${widget.budget}"),
             if (widget.startDate != null && widget.endDate != null) ...[
               Builder(
                 builder: (context) {
-                  final formatted = _formatDateAndTime(
+                  final formatted = formatDateAndTime(
                     widget.startDate!,
                     widget.endDate!,
                   );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _detailRow("Date", formatted["date"]!),
-                      _detailRow("Time", formatted["time"]!),
+                      detailRow("Date", formatted["date"]!),
+                      detailRow("Time", formatted["time"]!),
                     ],
                   );
                 },
               ),
             ],
-            _detailRow("Booking ID", widget.requestId),
+            detailRow("Booking ID", widget.requestId),
             _locationRow(widget.location),
             const SizedBox(height: 16),
             if (!widget.actionCompleted &&
@@ -458,42 +440,6 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
       ),
     );
   }
-
-  Widget _detailRow(String title, String value) => Container(
-    padding: EdgeInsets.only(top: 10, bottom: 4),
-    decoration: BoxDecoration(
-      border: Border(
-        bottom: BorderSide(
-          color: const Color.fromARGB(255, 231, 164, 206)!,
-          width: 1,
-        ),
-      ),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 16,
-            color: Colors.grey,
-          ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 17,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 
   Widget _actionButton(
     String text,

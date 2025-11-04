@@ -477,7 +477,7 @@ router.get(
       user: userId,
       project: projectId,
       userStatus: { $ne: "Accepted" },
-      vendorStatus: { $ne: "Accepted" },
+      vendorStatus: "Accepted",
     })
       .populate("vendor", "name role rating description email phone")
       .select(
