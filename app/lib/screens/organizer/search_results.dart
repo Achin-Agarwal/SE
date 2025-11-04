@@ -140,7 +140,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       print("Sending request body: $body");
       final response = await http.post(
         Uri.parse(
-          "https://achin-se-9kiip.ondigitalocean.app/user/sendrequests",
+          "$url/user/sendrequests",
         ),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(body),

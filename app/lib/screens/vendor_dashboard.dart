@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/url.dart';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/launch_dialer.dart';
 import 'package:flutter/material.dart';
@@ -46,7 +47,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
       final response = await http.get(
         Uri.parse(
-          'https://achin-se-9kiip.ondigitalocean.app/vendor/$vendorId/requests',
+          '$url/vendor/$vendorId/requests',
         ),
         headers: {
           'Authorization': 'Bearer $token',
@@ -170,7 +171,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       };
 
       final response = await http.post(
-        Uri.parse('https://achin-se-9kiip.ondigitalocean.app/vendor/respond'),
+        Uri.parse('$url/vendor/respond'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
