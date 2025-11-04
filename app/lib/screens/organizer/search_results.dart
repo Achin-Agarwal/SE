@@ -200,213 +200,216 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       );
     }
 
-    return Container(
-      padding: EdgeInsets.only(bottom: size.height * 0.015),
-      width: size.width * 0.9,
-      child: selectedVendor == null
-          ? Column(
-              children: [
-                SizedBox(height: size.height * 0.01),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "List",
-                      style: TextStyle(
-                        fontSize: size.width * 0.06,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          "All",
-                          style: TextStyle(
-                            fontSize: size.width * 0.04,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFFFF4B7D),
-                          ),
+    return RefreshIndicator(
+      onRefresh:fetchVendors,
+      child: Container(
+        padding: EdgeInsets.only(bottom: size.height * 0.015),
+        width: size.width * 0.9,
+        child: selectedVendor == null
+            ? Column(
+                children: [
+                  SizedBox(height: size.height * 0.01),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "List",
+                        style: TextStyle(
+                          fontSize: size.width * 0.06,
+                          fontWeight: FontWeight.bold,
                         ),
-                        IconButton(
-                          onPressed: () {
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            "All",
+                            style: TextStyle(
+                              fontSize: size.width * 0.04,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFFFF4B7D),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                for (var vendor in vendorsOfRole) {
+                                  vendor["selected"] = !allSelected;
+                                }
+                              });
+                            },
+                            icon: Icon(
+                              allSelected
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank,
+                              color: const Color(0xFFFF4B7D),
+                              size: size.width * 0.07,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: vendorsOfRole.length,
+                      itemBuilder: (context, index) {
+                        final vendor = vendorsOfRole[index];
+                        return InkWell(
+                          onTap: () {
                             setState(() {
-                              for (var vendor in vendorsOfRole) {
-                                vendor["selected"] = !allSelected;
-                              }
+                              selectedVendor = vendor;
                             });
                           },
-                          icon: Icon(
-                            allSelected
-                                ? Icons.check_box
-                                : Icons.check_box_outline_blank,
-                            color: const Color(0xFFFF4B7D),
-                            size: size.width * 0.07,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: vendorsOfRole.length,
-                    itemBuilder: (context, index) {
-                      final vendor = vendorsOfRole[index];
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            selectedVendor = vendor;
-                          });
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border(
-                              top: BorderSide(
-                                color: Colors.grey[300]!,
-                                width: 1,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 1,
+                                ),
                               ),
                             ),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            vertical: size.height * 0.006,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleAvatar(
-                                radius: size.width * 0.07,
-                                backgroundColor: Colors.grey[300],
-                                child: ClipOval(
-                                  child: Image.network(
-                                    vendor["profileImage"] ?? "",
-                                    fit: BoxFit.cover,
-                                    width: size.width * 0.14,
-                                    height: size.width * 0.14,
-                                    loadingBuilder:
-                                        (context, child, loadingProgress) {
-                                          if (loadingProgress == null)
-                                            return child;
-                                          return const Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          );
-                                        },
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const Icon(
-                                              Icons.person,
-                                              color: Colors.black54,
-                                              size: 28,
-                                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: size.height * 0.006,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: size.width * 0.07,
+                                  backgroundColor: Colors.grey[300],
+                                  child: ClipOval(
+                                    child: Image.network(
+                                      vendor["profileImage"] ?? "",
+                                      fit: BoxFit.cover,
+                                      width: size.width * 0.14,
+                                      height: size.width * 0.14,
+                                      loadingBuilder:
+                                          (context, child, loadingProgress) {
+                                            if (loadingProgress == null)
+                                              return child;
+                                            return const Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            );
+                                          },
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Icon(
+                                                Icons.person,
+                                                color: Colors.black54,
+                                                size: 28,
+                                              ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: size.width * 0.04),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      vendor["name"],
-                                      style: TextStyle(
-                                        fontSize: size.width * 0.045,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    SizedBox(height: size.height * 0.004),
-                                    Row(
-                                      children: [
-                                        ...List.generate(
-                                          5,
-                                          (i) => Icon(
-                                            i < (vendor["rating"] ?? 0).floor()
-                                                ? Icons.star
-                                                : Icons.star_border,
-                                            color: Colors.amber,
-                                            size: size.width * 0.04,
-                                          ),
+                                SizedBox(width: size.width * 0.04),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        vendor["name"],
+                                        style: TextStyle(
+                                          fontSize: size.width * 0.045,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        SizedBox(width: size.width * 0.02),
-                                        Text(
-                                          vendor["rating"].toString(),
-                                          style: TextStyle(
-                                            fontSize: size.width * 0.035,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: size.height * 0.004),
-                                    Text(
-                                      vendor["description"] ?? "",
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: size.width * 0.035,
-                                        color: Colors.grey[700],
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(height: size.height * 0.004),
+                                      Row(
+                                        children: [
+                                          ...List.generate(
+                                            5,
+                                            (i) => Icon(
+                                              i < (vendor["rating"] ?? 0).floor()
+                                                  ? Icons.star
+                                                  : Icons.star_border,
+                                              color: Colors.amber,
+                                              size: size.width * 0.04,
+                                            ),
+                                          ),
+                                          SizedBox(width: size.width * 0.02),
+                                          Text(
+                                            vendor["rating"].toString(),
+                                            style: TextStyle(
+                                              fontSize: size.width * 0.035,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: size.height * 0.004),
+                                      Text(
+                                        vendor["description"] ?? "",
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: size.width * 0.035,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-
-                              IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    vendor["selected"] = !vendor["selected"];
-                                  });
-                                },
-                                icon: Icon(
-                                  vendor["selected"]
-                                      ? Icons.check_box
-                                      : Icons.check_box_outline_blank,
-                                  color: vendor["selected"]
-                                      ? const Color(0xFFFF4B7D)
-                                      : Colors.grey[400],
-                                  size: size.width * 0.07,
+      
+                                IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      vendor["selected"] = !vendor["selected"];
+                                    });
+                                  },
+                                  icon: Icon(
+                                    vendor["selected"]
+                                        ? Icons.check_box
+                                        : Icons.check_box_outline_blank,
+                                    color: vendor["selected"]
+                                        ? const Color(0xFFFF4B7D)
+                                        : Colors.grey[400],
+                                    size: size.width * 0.07,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: size.height * 0.015),
-                  child: ElevatedButton(
-                    onPressed: _isPosting ? null : sendRequestToVendors,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF4B7D),
-                      minimumSize: Size(double.infinity, size.height * 0.065),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: _isPosting
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            "Done",
-                            style: TextStyle(
-                              fontSize: size.width * 0.045,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                              ],
                             ),
                           ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
-            )
-          : VendorDetailCard(
-              vendor: selectedVendor!,
-              onClose: () {
-                setState(() {
-                  selectedVendor = null;
-                });
-              },
-            ),
+                  Padding(
+                    padding: EdgeInsets.only(top: size.height * 0.015),
+                    child: ElevatedButton(
+                      onPressed: _isPosting ? null : sendRequestToVendors,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF4B7D),
+                        minimumSize: Size(double.infinity, size.height * 0.065),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: _isPosting
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              "Done",
+                              style: TextStyle(
+                                fontSize: size.width * 0.045,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              )
+            : VendorDetailCard(
+                vendor: selectedVendor!,
+                onClose: () {
+                  setState(() {
+                    selectedVendor = null;
+                  });
+                },
+              ),
+      ),
     );
   }
 }

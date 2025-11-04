@@ -51,39 +51,35 @@ const vendorRequestSchema = new mongoose.Schema(
       enum: ["Pending", "Accepted", "Rejected"],
       default: "Pending",
     },
-    budget: { type: Number },
-    additionalDetails: { type: String },
-    progress: [
-      {
-        text: {
-          type: String,
-          enum: ["Vendor booked", "Vendor arrived", "Vendor departed"],
-          required: true,
+    budget: { type: Number, default: null },
+    additionalDetails: { type: String, default: "" },
+
+    // Always exists
+    rating: { type: Number, min: 1, max: 5, default: null },
+    ratingMessage: { type: String, default: "" },
+
+    // Always initialized
+    progress: {
+      type: [
+        {
+          text: {
+            type: String,
+            enum: ["Vendor booked", "Vendor arrived", "Vendor departed"],
+            required: true,
+          },
+          done: { type: Boolean, default: false },
         },
-        done: { type: Boolean, default: false },
-      },
-    ],
-    rating: { type: Number, min: 1, max: 5 },
-    ratingMessage: { type: String },
+      ],
+      default: [
+        { text: "Vendor booked", done: true },
+        { text: "Vendor arrived", done: false },
+        { text: "Vendor departed", done: false },
+      ],
+    },
   },
   { timestamps: true }
 );
 
 vendorRequestSchema.index({ location: "2dsphere" });
-
-vendorRequestSchema.pre("save", function (next) {
-  if (
-    this.vendorStatus === "Accepted" &&
-    this.userStatus === "Accepted" &&
-    (!this.progress || this.progress.length === 0)
-  ) {
-    this.progress = [
-      { text: "Vendor booked", done: true },
-      { text: "Vendor arrived", done: false },
-      { text: "Vendor departed", done: false },
-    ];
-  }
-  next();
-});
 
 export default mongoose.model("VendorRequest", vendorRequestSchema);

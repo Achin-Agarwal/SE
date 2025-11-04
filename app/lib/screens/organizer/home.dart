@@ -144,139 +144,142 @@ class _HomeState extends ConsumerState<Home> {
   Widget build(BuildContext context) {
     return isLoading
         ? const Center(child: CircularProgressIndicator())
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: projects.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No previous projects',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: projects.length,
-                        itemBuilder: (ctx, index) {
-                          final project = projects[index];
-                          final name = project['name'] ?? 'Unnamed Project';
-                          final sentRequests = project['sentRequests'] as List?;
-                          String dateStr = '';
-                          String timeStr = '';
-
-                          if (sentRequests != null && sentRequests.isNotEmpty) {
-                            final vendor = sentRequests[0]['vendor'];
-                            if (vendor != null &&
-                                vendor['startDateTime'] != null) {
-                              final startDateTime = DateTime.parse(
-                                vendor['startDateTime'],
-                              );
-                              dateStr = DateFormat(
-                                'dd/MM/yyyy',
-                              ).format(startDateTime);
-                              timeStr = DateFormat(
-                                'HH:mm',
-                              ).format(startDateTime);
+        : RefreshIndicator(
+          onRefresh: fetchProjects,
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: projects.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No previous projects',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: projects.length,
+                          itemBuilder: (ctx, index) {
+                            final project = projects[index];
+                            final name = project['name'] ?? 'Unnamed Project';
+                            final sentRequests = project['sentRequests'] as List?;
+                            String dateStr = '';
+                            String timeStr = '';
+          
+                            if (sentRequests != null && sentRequests.isNotEmpty) {
+                              final vendor = sentRequests[0]['vendor'];
+                              if (vendor != null &&
+                                  vendor['startDateTime'] != null) {
+                                final startDateTime = DateTime.parse(
+                                  vendor['startDateTime'],
+                                );
+                                dateStr = DateFormat(
+                                  'dd/MM/yyyy',
+                                ).format(startDateTime);
+                                timeStr = DateFormat(
+                                  'HH:mm',
+                                ).format(startDateTime);
+                              }
                             }
-                          }
-
-                          final progress = calculateProgress(project);
-                          final percentValue = (progress * 100).toInt();
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 16,
-                            ),
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
+          
+                            final progress = calculateProgress(project);
+                            final percentValue = (progress * 100).toInt();
+          
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 8,
                                 horizontal: 16,
-                                vertical: 10,
                               ),
-                              title: Text(
-                                name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
                                 ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (dateStr.isNotEmpty)
-                                    Text(
-                                      dateStr,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  if (timeStr.isNotEmpty)
-                                    Text(
-                                      timeStr,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              trailing: CircularPercentIndicator(
-                                radius: 24.0,
-                                lineWidth: 4.0,
-                                percent: progress.clamp(0.0, 1.0),
-                                center: Text(
-                                  '$percentValue%',
+                                title: Text(
+                                  name,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                    fontSize: 16,
                                   ),
                                 ),
-                                progressColor: Colors.pinkAccent,
-                                backgroundColor: Colors.grey.shade300,
-                              ),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ChatScreen(),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (dateStr.isNotEmpty)
+                                      Text(
+                                        dateStr,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    if (timeStr.isNotEmpty)
+                                      Text(
+                                        timeStr,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                trailing: CircularPercentIndicator(
+                                  radius: 24.0,
+                                  lineWidth: 4.0,
+                                  percent: progress.clamp(0.0, 1.0),
+                                  center: Text(
+                                    '$percentValue%',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                                  progressColor: Colors.pinkAccent,
+                                  backgroundColor: Colors.grey.shade300,
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ChatScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
                 ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: showCreateProjectDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create New Project'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: showCreateProjectDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create New Project'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
+              ],
+            ),
+        );
   }
 }

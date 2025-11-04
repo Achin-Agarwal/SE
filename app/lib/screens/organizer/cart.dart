@@ -33,7 +33,6 @@ class _CartState extends ConsumerState<Cart> {
     _fetchRoles(selectedProjectId ?? '');
   }
 
-  /// ✅ Load saved project from provider
   void _loadInitialProject() {
     final savedId = ref.read(projectIdProvider);
     if (savedId != null) {
@@ -43,7 +42,6 @@ class _CartState extends ConsumerState<Cart> {
     }
   }
 
-  /// ✅ Fetch all projects from backend
   Future<void> fetchProjects() async {
     setState(() {
       isLoadingProjects = true;
@@ -73,18 +71,15 @@ class _CartState extends ConsumerState<Cart> {
     }
   }
 
-  /// ✅ Fetch roles for a selected project
   Future<void> _fetchRoles(String projectId) async {
     try {
       setState(() => isLoadingRoles = true);
       final userId = ref.read(userIdProvider);
-
       final res = await http.post(
         Uri.parse("$url/user/projectroles"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"userId": userId, "projectId": projectId}),
       );
-
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         setState(() {
@@ -105,7 +100,6 @@ class _CartState extends ConsumerState<Cart> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ✅ Header + Dropdown
         Padding(
           padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
           child: Row(
@@ -136,8 +130,6 @@ class _CartState extends ConsumerState<Cart> {
                       selectedRole = null;
                       roles.clear();
                     });
-
-                    // ✅ Update provider
                     final selected = projects.firstWhere(
                       (p) => p['id'] == newProjectId,
                       orElse: () => {'id': '', 'name': ''},
@@ -145,29 +137,35 @@ class _CartState extends ConsumerState<Cart> {
                     ref.read(projectIdProvider.notifier).state = selected['id'];
                     ref.read(projectNameProvider.notifier).state =
                         selected['name']!;
-
-                    // ✅ Fetch roles for new project
                     if (newProjectId != null) _fetchRoles(newProjectId);
                   },
                 ),
             ],
           ),
         ),
-
         const SizedBox(height: 10),
-
-        // ✅ Role Section
         Expanded(
           child: isLoadingRoles
               ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, animation) =>
-                        FadeTransition(opacity: animation, child: child),
-                    child: selectedRole == null
-                        ? _buildRoleList(size)
-                        : RoleList(selectedRole: selectedRole,projectId: selectedProjectId!),
+              : RefreshIndicator(
+                  onRefresh: () => selectedProjectId != null
+                      ? _fetchRoles(selectedProjectId!)
+                      : fetchProjects(),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        child: selectedRole == null
+                            ? _buildRoleList(size)
+                            : RoleList(
+                                selectedRole: selectedRole,
+                                projectId: selectedProjectId!,
+                              ),
+                      ),
+                    ],
                   ),
                 ),
         ),

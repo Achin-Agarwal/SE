@@ -109,10 +109,12 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
   }
 
   Future<void> _fetchProgress() async {
+    if (!mounted) return;
     try {
       final response = await http.get(
         Uri.parse("$url/user/vendorrequest/${widget.requestId}/progress"),
       );
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -121,10 +123,14 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
           _allStepsDone = _progressSteps.every((step) => step["done"] == true);
         });
       } else {
-        setState(() => _progressLoading = false);
+        if (mounted) {
+          setState(() => _progressLoading = false);
+        }
       }
     } catch (e) {
-      setState(() => _progressLoading = false);
+      if (mounted) {
+        setState(() => _progressLoading = false);
+      }
     }
   }
 

@@ -36,10 +36,7 @@ class _RoleListState extends ConsumerState<RoleList> {
 
   Future<void> fetchUserRequests() async {
     setState(() => isLoading = true);
-
     final userId = ref.read(userIdProvider);
-
-    /// ✅ Updated API endpoint to fetch by project
     final urls = Uri.parse(
       "$url/user/$userId/requests/${widget.projectId}",
     );

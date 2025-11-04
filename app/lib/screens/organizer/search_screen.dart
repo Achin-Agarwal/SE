@@ -142,6 +142,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> fetchProjects() async {
+    if (!mounted) return;
     setState(() {
       isLoadingProjects = true;
     });
@@ -149,7 +150,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       final id = ref.read(userIdProvider);
       final apiUrl = Uri.parse('$url/user/project/$id');
       final response = await http.get(apiUrl);
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<Map<String, dynamic>> fetchedProjects = (data as List)
@@ -176,9 +177,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     } catch (e) {
       debugPrint('Error fetching projects: $e');
     } finally {
-      setState(() {
-        isLoadingProjects = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoadingProjects = false;
+        });
+      }
     }
   }
 
