@@ -39,19 +39,15 @@ export const upload = multer({
   }),
 }).fields([
   { name: "profileImage", maxCount: 1 },
-  { name: "workImages", maxCount: 20 },
+  { name: "workImages", maxCount: 10000 },
 ]);
 
 const router = express.Router();
-
-// ✅ Vendor Register Route
 router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
     const { name, email, password, phone, role, description, location } = req.body;
-
-    // Parse location safely
     let parsedLocation = location;
     if (typeof location === "string") {
       try {
@@ -60,8 +56,6 @@ router.post(
         return res.error(400, "Invalid location format", "VALIDATION_ERROR");
       }
     }
-
-    // Validate fields
     if (
       !name ||
       !email ||
@@ -74,8 +68,6 @@ router.post(
     ) {
       return res.error(400, "Missing required fields", "VALIDATION_ERROR");
     }
-
-    // Check for duplicates
     const existingVendor = await Vendor.findOne({
       $or: [{ email }, { phone }],
     });
@@ -94,7 +86,7 @@ router.post(
       : null;
 
     const workImagesUrls =
-      req.files?.workImages?.map((file) => addHttpsPrefix(file.location)) || [];
+      req.files?.workImages?.map((file) => (file.location)) || [];
 
     // ✅ Create new vendor
     const newVendor = new Vendor({
