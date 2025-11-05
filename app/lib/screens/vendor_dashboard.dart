@@ -46,9 +46,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       }
 
       final response = await http.get(
-        Uri.parse(
-          '$url/vendor/$vendorId/requests',
-        ),
+        Uri.parse('$url/vendor/$vendorId/requests'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -297,7 +295,18 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _requests.isEmpty
-            ? const Center(child: Text("No pending requests"))
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 250),
+                  Center(
+                    child: Text(
+                      "No pending requests",
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ),
+                ],
+              )
             : ListView.builder(
                 padding: const EdgeInsets.all(12),
                 itemCount: _requests.length,

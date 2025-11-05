@@ -15,8 +15,6 @@ import multerS3 from "multer-s3";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-// ✅ Configure S3 client for DigitalOcean Spaces
 const s3 = new S3Client({
   endpoint: process.env.DO_SPACES_ENDPOINT,
   region: "blr1",
@@ -25,8 +23,6 @@ const s3 = new S3Client({
     secretAccessKey: process.env.DO_SPACES_SECRET,
   },
 });
-
-// ✅ Multer storage for profile + work images
 export const upload = multer({
   storage: multerS3({
     s3,
@@ -43,11 +39,22 @@ export const upload = multer({
 ]);
 
 const router = express.Router();
+
+const formatSpacesUrl = (url) => {
+  if (!url.startsWith("https://")) {
+    return url.replace(
+      /^blr1\.digitaloceanspaces\.com\/achin-se/,
+      "https://achin-se.blr1.digitaloceanspaces.com"
+    );
+  }
+  return url;
+};
 router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
-    const { name, email, password, phone, role, description, location } = req.body;
+    const { name, email, password, phone, role, description, location } =
+      req.body;
     let parsedLocation = location;
     if (typeof location === "string") {
       try {
@@ -78,17 +85,13 @@ router.post(
         "VENDOR_EXISTS"
       );
     }
-
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const profileImageUrl = req.files?.profileImage
-      ? req.files.profileImage[0].location
+      ? formatSpacesUrl(req.files.profileImage[0].location)
       : null;
-
     const workImagesUrls =
-      req.files?.workImages?.map((file) => (file.location)) || [];
-
-    // ✅ Create new vendor
+      req.files?.workImages?.map((file) => formatSpacesUrl(file.location)) ||
+      [];
     const newVendor = new Vendor({
       name,
       email,
@@ -103,11 +106,8 @@ router.post(
       profileImage: profileImageUrl,
       workImages: workImagesUrls,
     });
-
     await newVendor.save();
-
     const token = generateToken({ id: newVendor._id, role: "vendor" });
-
     return res.success(201, "Vendor registered successfully", {
       token,
       vendor: {
@@ -131,10 +131,13 @@ router.post(
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       console.log(parsed.error);
-      return res.error(400, "Validation failed", "VALIDATION_ERROR",
-    parsed.error.flatten());
+      return res.error(
+        400,
+        "Validation failed",
+        "VALIDATION_ERROR",
+        parsed.error.flatten()
+      );
     }
-
     const { email, password, role } = parsed.data;
     if (role === "user") {
       const user = await User.findOne({ email });
@@ -145,7 +148,6 @@ router.post(
           "INVALID_CREDENTIALS"
         );
       }
-
       const isPasswordValid = bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         return res.error(
@@ -154,9 +156,7 @@ router.post(
           "INVALID_CREDENTIALS"
         );
       }
-
       const token = generateToken({ id: user._id, role: "user" });
-
       return res.success(200, "Login successful", {
         token,
         user: {
@@ -166,14 +166,10 @@ router.post(
         },
       });
     }
-
-    // 🧑‍🎤 VENDOR LOGIN
     const vendor = await Vendor.findOne({ email });
     if (!vendor) {
       return res.error(401, "Invalid email or password", "INVALID_CREDENTIALS");
     }
-
-    // Check if role matches database
     if (vendor.role !== role.toLowerCase()) {
       return res.error(
         400,
@@ -181,14 +177,11 @@ router.post(
         "ROLE_MISMATCH"
       );
     }
-
     const isPasswordValid = bcrypt.compare(password, vendor.password);
     if (!isPasswordValid) {
       return res.error(401, "Invalid email or password", "INVALID_CREDENTIALS");
     }
-
     const token = generateToken({ id: vendor._id, role });
-
     return res.success(200, "Login successful", {
       token,
       vendor: {
@@ -201,7 +194,6 @@ router.post(
   })
 );
 
-// Get all requests for this vendor
 router.get(
   "/:vendorId/requests",
   safeHandler(async (req, res) => {
@@ -212,7 +204,6 @@ router.get(
   })
 );
 
-// Vendor accepts or rejects request
 router.post(
   "/respond",
   safeHandler(async (req, res) => {
@@ -222,8 +213,6 @@ router.post(
       if (!requestId || !action) {
         return res.error(400, "Missing requestId or action", "MISSING_FIELDS");
       }
-
-      // Find the request first
       const request = await VendorRequest.findById(requestId);
       if (!request) {
         return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
@@ -254,13 +243,9 @@ router.post(
             $pull: { receivedRequests: request._id },
           }),
         ]);
-
         await VendorRequest.findByIdAndDelete(requestId);
-
         return res.success(200, "Request rejected and removed successfully");
       }
-
-      // ✅ If vendor accepts
       if (action === "accept") {
         const updated = await VendorRequest.findByIdAndUpdate(
           requestId,
@@ -271,10 +256,8 @@ router.post(
           },
           { new: true }
         );
-
         return res.success(200, "Request accepted successfully", updated);
       }
-
       return res.error(400, "Invalid action provided", "INVALID_ACTION");
     } catch (err) {
       console.error("Respond error:", err);
@@ -283,11 +266,6 @@ router.post(
       });
     }
   })
-);
-
-router.get(
-  "/:vendorId/profile",
-  safeHandler(async (req, res) => {})
 );
 
 export default router;
