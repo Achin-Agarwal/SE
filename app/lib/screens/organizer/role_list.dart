@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:app/components/role_item_card.dart';
 import 'package:app/components/vendor_detail_card.dart';
+import 'package:app/providers/set.dart';
 import 'package:app/url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,28 +26,27 @@ class _RoleListState extends ConsumerState<RoleList> {
   List<Map<String, dynamic>> roles = [];
   Map<String, dynamic>? selectedVendor;
   bool isLoading = true;
-
   Set<String> completedRequests = {};
 
   @override
   void initState() {
     super.initState();
+    Future(() {
+      ref.read(setIndexProvider.notifier).state = 2;
+    });
     fetchUserRequests();
   }
 
   Future<void> fetchUserRequests() async {
     setState(() => isLoading = true);
     final userId = ref.read(userIdProvider);
-    final urls = Uri.parse(
-      "$url/user/$userId/requests/${widget.projectId}",
-    );
+    final urls = Uri.parse("$url/user/$userId/requests/${widget.projectId}");
 
     try {
       final response = await http.get(urls);
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
-        print("User requests data: $data");
 
         setState(() {
           roles = data
@@ -126,56 +126,66 @@ class _RoleListState extends ConsumerState<RoleList> {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: selectedVendor != null
-          ? VendorDetailCard(
-              key: ValueKey(selectedVendor!['requestId']),
-              name: selectedVendor!['name'],
-              rating: selectedVendor!['rating'],
-              description: selectedVendor!['description'],
-              budget: selectedVendor!['budget'],
-              requestId: selectedVendor!['requestId'],
-              role: selectedVendor!['role'],
-              userStatus: selectedVendor!['userStatus'],
-              actionCompleted: completedRequests.contains(
-                selectedVendor!['requestId'],
-              ),
-              phone: selectedVendor!['phone'],
-              onClose: () => setState(() => selectedVendor = null),
-              onActionCompleted: markRequestCompleted,
-            )
-          : SizedBox(
-              height: size.height,
-              child: RefreshIndicator(
-                color: const Color(0xFFFF4B7D),
-                onRefresh: fetchUserRequests,
-                child: ListView.builder(
-                  padding: EdgeInsets.symmetric(
-                    vertical: size.height * 0.01,
-                    horizontal: size.width * 0.05,
+    return PopScope(
+      canPop: selectedVendor == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selectedVendor != null) {
+          setState(() {
+            selectedVendor = null;
+          });
+        }
+      },
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: selectedVendor != null
+            ? VendorDetailCard(
+                key: ValueKey(selectedVendor!['requestId']),
+                name: selectedVendor!['name'],
+                rating: selectedVendor!['rating'],
+                description: selectedVendor!['description'],
+                budget: selectedVendor!['budget'],
+                requestId: selectedVendor!['requestId'],
+                role: selectedVendor!['role'],
+                userStatus: selectedVendor!['userStatus'],
+                actionCompleted: completedRequests.contains(
+                  selectedVendor!['requestId'],
+                ),
+                phone: selectedVendor!['phone'],
+                onClose: () => setState(() => selectedVendor = null),
+                onActionCompleted: markRequestCompleted,
+              )
+            : SizedBox(
+                height: size.height,
+                child: RefreshIndicator(
+                  color: const Color(0xFFFF4B7D),
+                  onRefresh: fetchUserRequests,
+                  child: ListView.builder(
+                    padding: EdgeInsets.symmetric(
+                      vertical: size.height * 0.01,
+                      horizontal: size.width * 0.05,
+                    ),
+                    itemCount: roles.length,
+                    itemBuilder: (context, index) {
+                      final role = roles[index];
+                      return GestureDetector(
+                        onTap: () {
+                          if (role['status'] == 'Accepted') {
+                            setState(() => selectedVendor = role);
+                          }
+                        },
+                        child: RoleItemCard(
+                          name: role['name'],
+                          description: role['description'],
+                          rating: role['rating'],
+                          status: role['status'],
+                          statusColor: role['statusColor'],
+                        ),
+                      );
+                    },
                   ),
-                  itemCount: roles.length,
-                  itemBuilder: (context, index) {
-                    final role = roles[index];
-                    return GestureDetector(
-                      onTap: () {
-                        if (role['status'] == 'Accepted') {
-                          setState(() => selectedVendor = role);
-                        }
-                      },
-                      child: RoleItemCard(
-                        name: role['name'],
-                        description: role['description'],
-                        rating: role['rating'],
-                        status: role['status'],
-                        statusColor: role['statusColor'],
-                      ),
-                    );
-                  },
                 ),
               ),
-            ),
+      ),
     );
   }
 }

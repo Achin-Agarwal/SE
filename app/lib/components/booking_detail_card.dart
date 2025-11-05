@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:app/providers/set.dart';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/detail_row.dart';
+import 'package:app/utils/mount.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -109,7 +111,6 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
   }
 
   Future<void> _fetchProgress() async {
-    if (!mounted) return;
     try {
       final response = await http.get(
         Uri.parse("$url/user/vendorrequest/${widget.requestId}/progress"),
@@ -123,14 +124,10 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
           _allStepsDone = _progressSteps.every((step) => step["done"] == true);
         });
       } else {
-        if (mounted) {
-          setState(() => _progressLoading = false);
-        }
+        safeSetState(() => _progressLoading = false);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _progressLoading = false);
-      }
+      safeSetState(() => _progressLoading = false);
     }
   }
 
@@ -236,6 +233,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
     if (widget.userStatus.toLowerCase() == "accepted") {
       _fetchProgress();
     }
+    Future(() => ref.read(setIndexProvider.notifier).state = 5);
     _checkReviewStatus();
   }
 

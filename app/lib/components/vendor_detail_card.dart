@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/providers/set.dart';
 import 'package:app/url.dart';
 import 'package:app/utils/launch_dialer.dart';
 import 'package:flutter/material.dart';
@@ -81,6 +82,14 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    Future(() {
+      ref.read(setIndexProvider.notifier).state = 3;
+    });
   }
 
   @override

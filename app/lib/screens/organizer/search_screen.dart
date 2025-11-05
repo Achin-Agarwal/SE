@@ -7,6 +7,7 @@ import 'package:app/providers/description.dart';
 import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
 import 'package:app/url.dart';
+import 'package:app/utils/mount.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -142,10 +143,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> fetchProjects() async {
-    if (!mounted) return;
-    setState(() {
+    safeSetState(() {
       isLoadingProjects = true;
     });
+
     try {
       final id = ref.read(userIdProvider);
       final apiUrl = Uri.parse('$url/user/project/$id');
@@ -156,17 +157,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         final List<Map<String, dynamic>> fetchedProjects = (data as List)
             .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
-        setState(() {
+
+        safeSetState(() {
           projects = fetchedProjects;
         });
+
         final savedProject = ref.read(projectNameProvider);
         if (savedProject.isNotEmpty) {
           final matchedProject = fetchedProjects.firstWhere(
             (p) => p['name'] == savedProject,
             orElse: () => {},
           );
+
           if (matchedProject.isNotEmpty) {
-            setState(() {
+            safeSetState(() {
               selectedProject = matchedProject;
             });
             // await fetchDisabledRoles();
@@ -177,11 +181,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     } catch (e) {
       debugPrint('Error fetching projects: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoadingProjects = false;
-        });
-      }
+      safeSetState(() {
+        isLoadingProjects = false;
+      });
     }
   }
 
@@ -248,26 +250,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Align(
-      alignment: Alignment.center,
-      child: Container(
-        width: size.width * 0.9,
-        height: size.height * 0.72,
-        padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(size.width * 0.03),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (showResults) {
+          setState(() {
+            showResults = false;
+          });
+        } else {
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+      },
+      child: Align(
+        alignment: Alignment.center,
+        child: Container(
+          width: size.width * 0.9,
+          height: size.height * 0.72,
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(size.width * 0.03),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: showResults
+              ? SearchResult(selectedRole: selectedRole)
+              : _buildForm(size),
         ),
-        child: showResults
-            ? SearchResult(selectedRole: selectedRole)
-            : _buildForm(size),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/providers/set.dart';
 import 'package:app/screens/organizer/vendor_detail_page.dart';
 import 'package:app/url.dart';
 import 'package:flutter/material.dart';
@@ -27,8 +28,12 @@ class _SearchResultState extends ConsumerState<SearchResult> {
   bool _isPosting = false;
 
   @override
+  @override
   void initState() {
     super.initState();
+    Future(() {
+      ref.read(setIndexProvider.notifier).state = 1;
+    });
     fetchVendors();
   }
 
@@ -139,9 +144,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     try {
       print("Sending request body: $body");
       final response = await http.post(
-        Uri.parse(
-          "$url/user/sendrequests",
-        ),
+        Uri.parse("$url/user/sendrequests"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(body),
       );
@@ -201,7 +204,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     }
 
     return RefreshIndicator(
-      onRefresh:fetchVendors,
+      onRefresh: fetchVendors,
       child: Container(
         padding: EdgeInsets.only(bottom: size.height * 0.015),
         width: size.width * 0.9,
@@ -307,7 +310,8 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                                 SizedBox(width: size.width * 0.04),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         vendor["name"],
@@ -322,7 +326,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                                           ...List.generate(
                                             5,
                                             (i) => Icon(
-                                              i < (vendor["rating"] ?? 0).floor()
+                                              i <
+                                                      (vendor["rating"] ?? 0)
+                                                          .floor()
                                                   ? Icons.star
                                                   : Icons.star_border,
                                               color: Colors.amber,
@@ -352,7 +358,7 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                                     ],
                                   ),
                                 ),
-      
+
                                 IconButton(
                                   onPressed: () {
                                     setState(() {

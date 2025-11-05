@@ -15,7 +15,6 @@ void main() async {
   print(token);
   final role = prefs.getString('role');
   print(role);
-
   runApp(
     ProviderScope(
       child: Shop(token: token, role: role),

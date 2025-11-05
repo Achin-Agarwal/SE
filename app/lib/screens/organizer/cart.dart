@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:app/components/rolecard.dart';
 import 'package:app/screens/organizer/role_list.dart';
 import 'package:app/url.dart';
+import 'package:app/utils/mount.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -43,29 +44,28 @@ class _CartState extends ConsumerState<Cart> {
   }
 
   Future<void> fetchProjects() async {
-    setState(() {
+    safeSetState(() {
       isLoadingProjects = true;
     });
     try {
       final id = ref.read(userIdProvider);
       final apiUrl = Uri.parse('$url/user/project/$id');
       final response = await http.get(apiUrl);
-
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Project fetch response data: $data');
         final List<Map<String, dynamic>> fetchedProjects = (data as List)
             .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
-        print('Fetched projects: $fetchedProjects');
-        setState(() {
+
+        safeSetState(() {
           projects = fetchedProjects;
         });
       }
     } catch (e) {
       debugPrint('Error fetching projects: $e');
     } finally {
-      setState(() {
+      safeSetState(() {
         isLoadingProjects = false;
       });
     }
@@ -73,23 +73,25 @@ class _CartState extends ConsumerState<Cart> {
 
   Future<void> _fetchRoles(String projectId) async {
     try {
-      setState(() => isLoadingRoles = true);
+      safeSetState(() => isLoadingRoles = true);
+
       final userId = ref.read(userIdProvider);
       final res = await http.post(
         Uri.parse("$url/user/projectroles"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"userId": userId, "projectId": projectId}),
       );
+      if (!mounted) return;
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        setState(() {
+        safeSetState(() {
           roles = List<String>.from(data['roles']);
         });
       }
     } catch (e) {
       debugPrint("Error fetching roles: $e");
     } finally {
-      setState(() => isLoadingRoles = false);
+      safeSetState(() => isLoadingRoles = false);
     }
   }
 
@@ -97,79 +99,90 @@ class _CartState extends ConsumerState<Cart> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Ongoing Deals',
-                style: TextStyle(
-                  fontSize: size.width * 0.06,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (isLoadingProjects)
-                const CircularProgressIndicator()
-              else
-                DropdownButton<String>(
-                  hint: const Text("Select Project"),
-                  value: selectedProjectId,
-                  items: projects.map((p) {
-                    return DropdownMenuItem<String>(
-                      value: p['id'],
-                      child: Text(p['name'] ?? ''),
-                    );
-                  }).toList(),
-                  onChanged: (newProjectId) {
-                    setState(() {
-                      selectedProjectId = newProjectId;
-                      selectedRole = null;
-                      roles.clear();
-                    });
-                    final selected = projects.firstWhere(
-                      (p) => p['id'] == newProjectId,
-                      orElse: () => {'id': '', 'name': ''},
-                    );
-                    ref.read(projectIdProvider.notifier).state = selected['id'];
-                    ref.read(projectNameProvider.notifier).state =
-                        selected['name']!;
-                    if (newProjectId != null) _fetchRoles(newProjectId);
-                  },
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: isLoadingRoles
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: () => selectedProjectId != null
-                      ? _fetchRoles(selectedProjectId!)
-                      : fetchProjects(),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
-                        child: selectedRole == null
-                            ? _buildRoleList(size)
-                            : RoleList(
-                                selectedRole: selectedRole,
-                                projectId: selectedProjectId!,
-                              ),
-                      ),
-                    ],
+    return PopScope(
+      canPop: selectedRole == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selectedRole != null) {
+          setState(() {
+            selectedRole = null;
+          });
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Ongoing Deals',
+                  style: TextStyle(
+                    fontSize: size.width * 0.06,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-        ),
-      ],
+                if (isLoadingProjects)
+                  const CircularProgressIndicator()
+                else
+                  DropdownButton<String>(
+                    hint: const Text("Select Project"),
+                    value: selectedProjectId,
+                    items: projects.map((p) {
+                      return DropdownMenuItem<String>(
+                        value: p['id'],
+                        child: Text(p['name'] ?? ''),
+                      );
+                    }).toList(),
+                    onChanged: (newProjectId) {
+                      setState(() {
+                        selectedProjectId = newProjectId;
+                        selectedRole = null;
+                        roles.clear();
+                      });
+                      final selected = projects.firstWhere(
+                        (p) => p['id'] == newProjectId,
+                        orElse: () => {'id': '', 'name': ''},
+                      );
+                      ref.read(projectIdProvider.notifier).state =
+                          selected['id'];
+                      ref.read(projectNameProvider.notifier).state =
+                          selected['name']!;
+                      if (newProjectId != null) _fetchRoles(newProjectId);
+                    },
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: isLoadingRoles
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: () => selectedProjectId != null
+                        ? _fetchRoles(selectedProjectId!)
+                        : fetchProjects(),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(opacity: animation, child: child),
+                          child: selectedRole == null
+                              ? _buildRoleList(size)
+                              : RoleList(
+                                  selectedRole: selectedRole,
+                                  projectId: selectedProjectId!,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -190,7 +203,6 @@ class _CartState extends ConsumerState<Cart> {
       key: const ValueKey('roleList'),
       children: [
         SizedBox(height: size.height * 0.02),
-
         Padding(
           padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
           child: Column(

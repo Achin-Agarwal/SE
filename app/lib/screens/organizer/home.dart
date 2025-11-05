@@ -4,6 +4,7 @@ import 'package:app/providers/navigation_provider.dart';
 import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
 import 'package:app/url.dart';
+import 'package:app/utils/mount.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -29,32 +30,29 @@ class _HomeState extends ConsumerState<Home> {
   }
 
   Future<void> fetchProjects() async {
-    setState(() {
-      isLoading = true;
-    });
+    safeSetState(() => isLoading = true);
 
     try {
       final id = ref.read(userIdProvider);
       final apiUrl = Uri.parse('$url/user/project/$id');
       final response = await http.get(apiUrl);
+        if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List;
-        setState(() {
+        safeSetState(() {
           projects = data.map((e) => e as Map<String, dynamic>).toList();
         });
       } else {
-        setState(() {
+        safeSetState(() {
           projects = [];
         });
       }
     } catch (e) {
-      setState(() {
+      safeSetState(() {
         projects = [];
       });
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      safeSetState(() => isLoading = false);
     }
   }
 
@@ -145,8 +143,8 @@ class _HomeState extends ConsumerState<Home> {
     return isLoading
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(
-          onRefresh: fetchProjects,
-          child: Column(
+            onRefresh: fetchProjects,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
@@ -162,11 +160,13 @@ class _HomeState extends ConsumerState<Home> {
                           itemBuilder: (ctx, index) {
                             final project = projects[index];
                             final name = project['name'] ?? 'Unnamed Project';
-                            final sentRequests = project['sentRequests'] as List?;
+                            final sentRequests =
+                                project['sentRequests'] as List?;
                             String dateStr = '';
                             String timeStr = '';
-          
-                            if (sentRequests != null && sentRequests.isNotEmpty) {
+
+                            if (sentRequests != null &&
+                                sentRequests.isNotEmpty) {
                               final vendor = sentRequests[0]['vendor'];
                               if (vendor != null &&
                                   vendor['startDateTime'] != null) {
@@ -181,10 +181,10 @@ class _HomeState extends ConsumerState<Home> {
                                 ).format(startDateTime);
                               }
                             }
-          
+
                             final progress = calculateProgress(project);
                             final percentValue = (progress * 100).toInt();
-          
+
                             return Card(
                               margin: const EdgeInsets.symmetric(
                                 vertical: 8,
@@ -280,6 +280,6 @@ class _HomeState extends ConsumerState<Home> {
                 ),
               ],
             ),
-        );
+          );
   }
 }
