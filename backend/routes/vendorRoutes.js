@@ -237,7 +237,7 @@ router.post(
       if (action === "reject") {
         await Promise.all([
           User.findByIdAndUpdate(request.user, {
-            $pull: { sentRequests: request._id },
+            $pull: { sentRequests: { vendor: request._id } },
           }),
           Vendor.findByIdAndUpdate(request.vendor, {
             $pull: { receivedRequests: request._id },
