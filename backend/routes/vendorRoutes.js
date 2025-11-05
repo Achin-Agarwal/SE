@@ -89,19 +89,8 @@ router.post(
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Fix URLs to always include https://
-    const addHttpsPrefix = (url) => {
-      if (!url) return null;
-      if (url.startsWith("http")) return url;
-      // Build full URL: https://<bucket>.<endpoint>/<key>
-      return `https://${process.env.DO_SPACES_BUCKET}.${process.env.DO_SPACES_ENDPOINT.replace(
-        /^https?:\/\//,
-        ""
-      )}/${url}`;
-    };
-
     const profileImageUrl = req.files?.profileImage
-      ? addHttpsPrefix(req.files.profileImage[0].location)
+      ? req.files.profileImage[0].location
       : null;
 
     const workImagesUrls =
@@ -155,8 +144,6 @@ router.post(
     }
 
     const { email, password, role } = parsed.data;
-
-    // 🧍‍♂️ USER LOGIN
     if (role === "user") {
       const user = await User.findOne({ email });
       if (!user) {
