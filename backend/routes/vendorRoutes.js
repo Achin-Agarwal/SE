@@ -55,7 +55,7 @@ router.post(
   upload,
   safeHandler(async (req, res) => {
     try {
-      const parsedBody = req.body;
+      let parsedBody = { ...req.body };
       if (typeof parsedBody.location === "string") {
         try {
           parsedBody.location = JSON.parse(parsedBody.location);
@@ -63,8 +63,8 @@ router.post(
           return res.error(400, "Invalid location format", "VALIDATION_ERROR");
         }
       }
+      const parsedData = vendorRegisterSchema.parse(parsedBody);
       console.log("Profile Image File:", req.files?.profileImage);
-      const parsedData = vendorRegisterSchema.parse(req.body);
       const { name, email, password, phone, role, description, location } = parsedData;
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
