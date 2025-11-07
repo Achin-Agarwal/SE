@@ -63,9 +63,12 @@ class _HomeState extends ConsumerState<Home> {
           .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
+      print('Fetch Projects Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        final data = decoded['data']; // Extract the 'data' array
+
         if (data is List) {
           safeSetState(() {
             projects = data.whereType<Map<String, dynamic>>().toList();
@@ -112,7 +115,7 @@ class _HomeState extends ConsumerState<Home> {
             body: jsonEncode({'name': name}),
           )
           .timeout(const Duration(seconds: 15));
-
+      print('Create Project Response Body: ${response.body}');
       if (response.statusCode == 200 || response.statusCode == 201) {
         ref.read(projectNameProvider.notifier).state = name;
         ref.read(navIndexProvider.notifier).state = 1;

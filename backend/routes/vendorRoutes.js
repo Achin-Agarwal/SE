@@ -77,9 +77,17 @@ router.post(
         );
       }
       const hashedPassword = await bcrypt.hash(password, 10);
-      const profileImageUrl = req.files?.profileImage
-        ? formatSpacesUrl(req.files.profileImage[0].location)
-        : null;
+      let profileImageUrl = null;
+      if (req.files?.profileImage) {
+        profileImageUrl = req.files.profileImage[0].location;
+        if (
+          profileImageUrl &&
+          !profileImageUrl.startsWith("http://") &&
+          !profileImageUrl.startsWith("https://")
+        ) {
+          profileImageUrl = `https://${profileImageUrl}`;
+        }
+      }
       const workImagesUrls =
         req.files?.workImages?.map((file) => formatSpacesUrl(file.location)) ||
         [];

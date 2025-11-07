@@ -58,29 +58,39 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       final userId = ref.read(userIdProvider);
       final projectId = ref.read(projectIdProvider);
       final uri = Uri.parse(
-          '$url/user/vendors/${widget.selectedRole}?lat=$lat&lon=$lon&userId=$userId&projectId=$projectId');
-      final response = await http.get(uri, headers: {
-        "Authorization": 'Bearer $token',
-        "Content-Type": "application/json",
-      });
+        '$url/user/vendors/${widget.selectedRole}?lat=$lat&lon=$lon&userId=$userId&projectId=$projectId',
+      );
+      final response = await http.get(
+        uri,
+        headers: {
+          "Authorization": 'Bearer $token',
+          "Content-Type": "application/json",
+        },
+      );
+      print('Fetch Vendors Response Body: ${response.body}');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        if (decoded is! List) throw const FormatException("Invalid data format");
+        if (decoded is! List)
+          throw const FormatException("Invalid data format");
         final parsedVendors = decoded.map<Map<String, dynamic>>((v) {
           return {
             "id": v["_id"]?.toString() ?? "",
             "name": v["name"]?.toString() ?? "Unnamed",
             "role": v["role"]?.toString() ?? "",
-            "rating": (v["rating"] is num) ? (v["rating"] as num).toDouble() : 0.0,
+            "rating": (v["rating"] is num)
+                ? (v["rating"] as num).toDouble()
+                : 0.0,
             "description": v["description"]?.toString() ?? "",
             "selected": false,
             "email": v["email"]?.toString() ?? "",
             "location": v["location"] ?? {},
             "profileImage": v["profileImage"]?.toString() ?? "",
             "workImages": (v["workImages"] is List)
-                ? List<String>.from((v["workImages"] as List)
-                    .map((img) => img?.toString() ?? "")
-                    .where((img) => img.isNotEmpty))
+                ? List<String>.from(
+                    (v["workImages"] as List)
+                        .map((img) => img?.toString() ?? "")
+                        .where((img) => img.isNotEmpty),
+                  )
                 : <String>[],
           };
         }).toList();
@@ -110,8 +120,10 @@ class _SearchResultState extends ConsumerState<SearchResult> {
   }
 
   Future<void> sendRequestToVendors() async {
-    final selectedVendorIds =
-        vendors.where((v) => v["selected"] == true).map<String>((v) => v["id"]).toList();
+    final selectedVendorIds = vendors
+        .where((v) => v["selected"] == true)
+        .map<String>((v) => v["id"])
+        .toList();
     if (selectedVendorIds.isEmpty) {
       _showSnackbar("Please select at least one vendor");
       return;
@@ -121,8 +133,12 @@ class _SearchResultState extends ConsumerState<SearchResult> {
     final location = ref.read(locationProvider);
     final dateMap = ref.read(dateProvider);
     final description = ref.read(descriptionProvider);
-    if (projectId == null || dateMap['start'] == null || dateMap['end'] == null) {
-      _showSnackbar("Missing project or event details. Please fill them first.");
+    if (projectId == null ||
+        dateMap['start'] == null ||
+        dateMap['end'] == null) {
+      _showSnackbar(
+        "Missing project or event details. Please fill them first.",
+      );
       return;
     }
     final prefs = await SharedPreferences.getInstance();
@@ -222,7 +238,11 @@ class _SearchResultState extends ConsumerState<SearchResult> {
   }
 
   Widget _buildVendorList(
-      BuildContext context, Size size, List vendorsOfRole, bool allSelected) {
+    BuildContext context,
+    Size size,
+    List vendorsOfRole,
+    bool allSelected,
+  ) {
     return Column(
       children: [
         SizedBox(height: size.height * 0.01),
@@ -255,7 +275,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                     });
                   },
                   icon: Icon(
-                    allSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                    allSelected
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
                     color: const Color(0xFFFF4B7D),
                     size: size.width * 0.07,
                   ),
@@ -323,8 +345,10 @@ class _SearchResultState extends ConsumerState<SearchResult> {
                 height: size.width * 0.14,
                 loadingBuilder: (context, child, loadingProgress) =>
                     loadingProgress == null
-                        ? child
-                        : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ? child
+                    : const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                 errorBuilder: (_, __, ___) =>
                     const Icon(Icons.person, color: Colors.black54, size: 28),
               ),
@@ -388,8 +412,9 @@ class _SearchResultState extends ConsumerState<SearchResult> {
               vendor["selected"]
                   ? Icons.check_box
                   : Icons.check_box_outline_blank,
-              color:
-                  vendor["selected"] ? const Color(0xFFFF4B7D) : Colors.grey[400],
+              color: vendor["selected"]
+                  ? const Color(0xFFFF4B7D)
+                  : Colors.grey[400],
               size: size.width * 0.07,
             ),
           ),

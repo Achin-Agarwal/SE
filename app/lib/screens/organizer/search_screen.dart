@@ -37,12 +37,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<String> disabledRoles = [];
   final TextEditingController descriptionController = TextEditingController();
   bool showResults = false;
-  final List<String> roles = [
-    'Photographer',
-    'Caterer',
-    'Decorator',
-    'Dj',
-  ];
+  final List<String> roles = ['Photographer', 'Caterer', 'Decorator', 'Dj'];
 
   bool get isFormValid =>
       selectedProject != null &&
@@ -143,22 +138,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         },
       );
       if (!mounted) return;
+      print('Fetch Projects Response Body: ${response.body}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final fetchedProjects = (data as List)
-            .map((p) => {'id': p['_id'], 'name': p['name']})
-            .toList();
-        safeSetState(() => projects = fetchedProjects);
-        final savedProject = ref.read(projectNameProvider);
-        if (savedProject.isNotEmpty) {
-          final matchedProject = fetchedProjects.firstWhere(
-            (p) => p['name'] == savedProject,
-            orElse: () => {},
-          );
-          if (matchedProject.isNotEmpty) {
-            safeSetState(() => selectedProject = matchedProject);
-            _saveToProviders();
+
+        if (data['status'] == 'success' && data['data'] is List) {
+          final fetchedProjects = (data['data'] as List)
+              .map((p) => {'id': p['_id'], 'name': p['name']})
+              .toList();
+
+          safeSetState(() => projects = fetchedProjects);
+
+          final savedProject = ref.read(projectNameProvider);
+          if (savedProject.isNotEmpty) {
+            final matchedProject = fetchedProjects.firstWhere(
+              (p) => p['name'] == savedProject,
+              orElse: () => {},
+            );
+            if (matchedProject.isNotEmpty) {
+              safeSetState(() => selectedProject = matchedProject);
+              _saveToProviders();
+            }
           }
+        } else {
+          showSnackBar(context, "Unexpected response format");
         }
       } else {
         showSnackBar(context, "Failed to load projects");

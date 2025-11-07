@@ -58,14 +58,10 @@ router.post(
           "USER_EXISTS"
         );
       }
-
       const hashedPassword = await bcrypt.hash(password, 10);
-
       let profileImageUrl = null;
       if (req.files?.profileImage) {
         profileImageUrl = req.files.profileImage[0].location;
-
-        // ✅ Ensure the URL always starts with https://
         if (
           profileImageUrl &&
           !profileImageUrl.startsWith("http://") &&
@@ -74,7 +70,6 @@ router.post(
           profileImageUrl = `https://${profileImageUrl}`;
         }
       }
-
       const newUser = new User({
         name,
         email,

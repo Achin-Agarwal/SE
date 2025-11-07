@@ -44,6 +44,13 @@ class _DashboardState extends ConsumerState<Dashboard> {
       const Cart(),
       const Bookings(),
     ];
+
+    // Extract first name safely
+    final fullName = ref.watch(usernameProvider);
+    final firstName = fullName.contains(' ')
+        ? fullName.split(' ').first
+        : fullName;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -58,15 +65,13 @@ class _DashboardState extends ConsumerState<Dashboard> {
             ref.read(navIndexProvider.notifier).state = 1;
             ref.read(setIndexProvider.notifier).state = 0;
             return;
-          }
-          else if(currentSet >1 && currentSet <4){
+          } else if (currentSet > 1 && currentSet < 4) {
             ref.read(navIndexProvider.notifier).state = 2;
             ref.read(setIndexProvider.notifier).state = 0;
             return;
-          }
-          else if(currentSet >=4){
-            ref.read(navIndexProvider.notifier).state =3;
-            ref.read(setIndexProvider.notifier).state =0;
+          } else if (currentSet >= 4) {
+            ref.read(navIndexProvider.notifier).state = 3;
+            ref.read(setIndexProvider.notifier).state = 0;
             return;
           }
         }
@@ -103,44 +108,50 @@ class _DashboardState extends ConsumerState<Dashboard> {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => _logout(context),
-                    child: CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Colors.pink[50],
-                      child: ClipOval(
-                        child: Image.network(
-                          ref.watch(imageProvider),
-                          fit: BoxFit.cover,
-                          width: 44,
-                          height: 44,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(
-                                Icons.person,
-                                color: Colors.black54,
-                                size: 28,
-                              ),
-                        ),
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.pink[50],
+                    child: ClipOval(
+                      child: Image.network(
+                        ref.watch(imageProvider),
+                        fit: BoxFit.cover,
+                        width: 44,
+                        height: 44,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.person,
+                              color: Colors.black54,
+                              size: 28,
+                            ),
                       ),
                     ),
                   ),
                   SizedBox(width: size.width * 0.05),
-                  Text(
-                    "Hello, ${ref.watch(usernameProvider)}",
-                    style: TextStyle(
-                      fontSize: size.width * 0.055,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      "Hello, $firstName",
+                      style: TextStyle(
+                        fontSize: size.width * 0.055,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.pink),
+                    onPressed: () => _logout(context),
                   ),
                 ],
               ),
             ),
+
             Expanded(child: screens[currentIndex]),
           ],
         ),
