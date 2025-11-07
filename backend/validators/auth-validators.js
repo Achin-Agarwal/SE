@@ -93,7 +93,7 @@ export const vendorRegisterSchema = z.object({
     }),
 
   role: z.enum(
-    ["photographer", "caterer", "decorator", "musician", "dj", "performer"],
+    ["photographer", "caterer", "decorator", "dj"],
     {
       message: "Please select a valid vendor role.",
     }

@@ -44,45 +44,50 @@ router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
-    const { name, email, password, phone, role } = req.body;
-    if (!name || !email || !password || !phone || !role) {
-      return res.error(400, "Missing required fields", "VALIDATION_ERROR");
+    try {
+      const parsedData = userRegisterSchema.parse(req.body);
+      const { name, email, password, phone, role } = parsedData;
+      const existingUser = await User.findOne({
+        $or: [{ email }, { phone }],
+      });
+      if (existingUser) {
+        return res.error(
+          409,
+          "User already exists with this email or phone number",
+          "USER_EXISTS"
+        );
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const profileImageUrl = req.files?.profileImage
+        ? req.files.profileImage[0].location
+        : null;
+      const newUser = new User({
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        role: role.toLowerCase(),
+        profileImage: profileImageUrl,
+      });
+      await newUser.save();
+      const token = generateToken({ id: newUser._id, role: "user" });
+      return res.success(201, "User registered successfully", {
+        token,
+        user: {
+          id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: newUser.role,
+          profileImage: newUser.profileImage,
+        },
+      });
+    } catch (err) {
+      if (err.name === "ZodError") {
+        return res.error(400, err.errors[0]?.message, "VALIDATION_ERROR");
+      }
+      throw err;
     }
-    const existingUser = await User.findOne({
-      $or: [{ email }, { phone }],
-    });
-    if (existingUser) {
-      return res.error(
-        409,
-        "User already exists with this email or phone number",
-        "USER_EXISTS"
-      );
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const profileImageUrl = req.files?.profileImage
-      ? req.files.profileImage[0].location
-      : null;
-    const newUser = new User({
-      name,
-      email,
-      phone,
-      password: hashedPassword,
-      role: role.toLowerCase(),
-      profileImage: profileImageUrl,
-    });
-    await newUser.save();
-    const token = generateToken({ id: newUser._id, role: "user" });
-    return res.success(201, "User registered successfully", {
-      token,
-      user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        phone: newUser.phone,
-        role: newUser.role,
-        profileImage: newUser.profileImage,
-      },
-    });
   })
 );
 
@@ -133,7 +138,11 @@ router.get(
     if (!user) {
       return res.error(404, "User not found", "USER_NOT_FOUND");
     }
-    return res.success(200, "User projects fetched successfully", user.projects);
+    return res.success(
+      200,
+      "User projects fetched successfully",
+      user.projects
+    );
   })
 );
 
@@ -234,7 +243,11 @@ router.get(
     const filteredVendors = nearbyVendors.filter(
       (v) => !requestedVendorIds.includes(v._id.toString())
     );
-    return res.success(200, "Nearby vendors fetched successfully", filteredVendors);
+    return res.success(
+      200,
+      "Nearby vendors fetched successfully",
+      filteredVendors
+    );
   })
 );
 
@@ -253,13 +266,21 @@ router.post(
       endDateTime,
     } = req.body;
     if (!userId || !projectId) {
-      return res.error(400, "userId and projectId are required", "MISSING_FIELDS");
+      return res.error(
+        400,
+        "userId and projectId are required",
+        "MISSING_FIELDS"
+      );
     }
     if (req.user.role === "user" && req.user.id !== userId) {
       return res.error(403, "Unauthorized access", "UNAUTHORIZED_ACCESS");
     }
     if (!Array.isArray(vendors) || vendors.length === 0) {
-      return res.error(400, "vendors (array of IDs) is required", "INVALID_VENDORS");
+      return res.error(
+        400,
+        "vendors (array of IDs) is required",
+        "INVALID_VENDORS"
+      );
     }
     if (!startDateTime || !endDateTime) {
       return res.error(
@@ -271,12 +292,17 @@ router.post(
     const start = new Date(startDateTime);
     const end = new Date(endDateTime);
     if (end <= start) {
-      return res.error(400, "endDateTime must be after startDateTime", "INVALID_DATE_ORDER");
+      return res.error(
+        400,
+        "endDateTime must be after startDateTime",
+        "INVALID_DATE_ORDER"
+      );
     }
     const user = await User.findById(userId);
     if (!user) return res.error(404, "User not found", "USER_NOT_FOUND");
     const project = user.projects.id(projectId);
-    if (!project) return res.error(404, "Project not found", "PROJECT_NOT_FOUND");
+    if (!project)
+      return res.error(404, "Project not found", "PROJECT_NOT_FOUND");
     const requests = await Promise.all(
       vendors.map(async (vendorId) => {
         const formattedLocation = {
@@ -317,12 +343,17 @@ router.post(
       return res.error(403, "Unauthorized access", "UNAUTHORIZED_ACCESS");
     }
     if (!userId || !projectId) {
-      return res.error(400, "userId and projectId are required", "MISSING_FIELDS");
+      return res.error(
+        400,
+        "userId and projectId are required",
+        "MISSING_FIELDS"
+      );
     }
     const user = await User.findById(userId);
     if (!user) return res.error(404, "User not found", "USER_NOT_FOUND");
     const project = user.projects.id(projectId);
-    if (!project) return res.error(404, "Project not found", "PROJECT_NOT_FOUND");
+    if (!project)
+      return res.error(404, "Project not found", "PROJECT_NOT_FOUND");
     const ongoingRequests = await VendorRequest.find({
       user: userId,
       project: projectId,
@@ -349,12 +380,17 @@ router.post(
       return res.error(403, "Unauthorized access", "UNAUTHORIZED_ACCESS");
     }
     if (!userId || !projectId) {
-      return res.error(400, "userId and projectId are required", "MISSING_FIELDS");
+      return res.error(
+        400,
+        "userId and projectId are required",
+        "MISSING_FIELDS"
+      );
     }
     const user = await User.findById(userId);
     if (!user) return res.error(404, "User not found", "USER_NOT_FOUND");
     const project = user.projects.id(projectId);
-    if (!project) return res.error(404, "Project not found", "PROJECT_NOT_FOUND");
+    if (!project)
+      return res.error(404, "Project not found", "PROJECT_NOT_FOUND");
     const acceptedRequests = await VendorRequest.find({
       user: userId,
       project: projectId,
@@ -397,9 +433,9 @@ router.get(
   checkAuth("user"),
   safeHandler(async (req, res) => {
     const { userId, projectId } = req.params;
-    if(req.user.role === "user" && req.user.id !== userId) {
-        return res.status(403).json({ error: "Unauthorized access" });
-      }
+    if (req.user.role === "user" && req.user.id !== userId) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
     const user = await User.findById(userId).lean();
     if (!user) return res.status(404).json({ message: "User not found" });
     const project = user.projects.find(
@@ -536,7 +572,10 @@ router.put(
     if (!request) {
       return res.status(404).json({ message: "Vendor request not found" });
     }
-    if (req.user.role === "vendor" && req.user.id !== request.vendor.toString()) {
+    if (
+      req.user.role === "vendor" &&
+      req.user.id !== request.vendor.toString()
+    ) {
       return res.status(403).json({ error: "Unauthorized access" });
     }
     const step = request.progress.find((p) => p.text === text);
@@ -555,9 +594,13 @@ router.put(
   safeHandler(async (req, res) => {
     const { rating, message } = req.body;
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      return res
+        .status(400)
+        .json({ message: "Rating must be between 1 and 5" });
     }
-    const request = await VendorRequest.findById(req.params.id).populate("vendor");
+    const request = await VendorRequest.findById(req.params.id).populate(
+      "vendor"
+    );
     if (!request) {
       return res.status(404).json({ message: "Vendor request not found" });
     }

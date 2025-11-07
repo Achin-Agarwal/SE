@@ -29,7 +29,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? emailError;
   String? passwordError;
 
-  final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator'];
+  final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator','Dj'];
 
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) return;

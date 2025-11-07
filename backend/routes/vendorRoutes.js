@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import {
+  vendorRegisterSchema,
   loginSchema,
 } from "../validators/auth-validators.js";
 import { safeHandler } from "../middlewares/safeHandler.js";
@@ -53,75 +54,71 @@ router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
-    const { name, email, password, phone, role, description, location } =
-      req.body;
-    let parsedLocation = location;
-    if (typeof location === "string") {
-      try {
-        parsedLocation = JSON.parse(location);
-      } catch {
-        return res.error(400, "Invalid location format", "VALIDATION_ERROR");
+    try {
+      let parsedBody = req.body;
+      if (typeof parsedBody.location === "string") {
+        try {
+          parsedBody.location = JSON.parse(parsedBody.location);
+        } catch {
+          return res.error(400, "Invalid location format", "VALIDATION_ERROR");
+        }
       }
+      const parsedData = vendorRegisterSchema.parse(parsedBody);
+      const { name, email, password, phone, role, description, location } =
+        parsedData;
+      const existingVendor = await Vendor.findOne({
+        $or: [{ email }, { phone }],
+      });
+      if (existingVendor) {
+        return res.error(
+          409,
+          "Vendor already exists with this email or phone number",
+          "VENDOR_EXISTS"
+        );
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const profileImageUrl = req.files?.profileImage
+        ? formatSpacesUrl(req.files.profileImage[0].location)
+        : null;
+      const workImagesUrls =
+        req.files?.workImages?.map((file) => formatSpacesUrl(file.location)) ||
+        [];
+      const newVendor = new Vendor({
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        role: role.toLowerCase(),
+        description,
+        location: {
+          lat: location.lat.toString(),
+          lon: location.lon.toString(),
+        },
+        profileImage: profileImageUrl,
+        workImages: workImagesUrls,
+      });
+      await newVendor.save();
+      const token = generateToken({ id: newVendor._id, role: "vendor" });
+      return res.success(201, "Vendor registered successfully", {
+        token,
+        vendor: {
+          id: newVendor._id,
+          name: newVendor.name,
+          email: newVendor.email,
+          phone: newVendor.phone,
+          role: newVendor.role,
+          description: newVendor.description,
+          location: newVendor.location,
+          profileImage: newVendor.profileImage,
+          workImages: newVendor.workImages,
+        },
+      });
+    } catch (err) {
+      if (err.name === "ZodError") {
+        return res.error(400, err.errors[0]?.message, "VALIDATION_ERROR");
+      }
+      throw err;
     }
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !phone ||
-      !role ||
-      !description ||
-      !parsedLocation?.lat ||
-      !parsedLocation?.lon
-    ) {
-      return res.error(400, "Missing required fields", "VALIDATION_ERROR");
-    }
-    const existingVendor = await Vendor.findOne({
-      $or: [{ email }, { phone }],
-    });
-    if (existingVendor) {
-      return res.error(
-        409,
-        "Vendor already exists with this email or phone number",
-        "VENDOR_EXISTS"
-      );
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const profileImageUrl = req.files?.profileImage
-      ? formatSpacesUrl(req.files.profileImage[0].location)
-      : null;
-    const workImagesUrls =
-      req.files?.workImages?.map((file) => formatSpacesUrl(file.location)) ||
-      [];
-    const newVendor = new Vendor({
-      name,
-      email,
-      phone,
-      password: hashedPassword,
-      role: role.toLowerCase(),
-      description,
-      location: {
-        lat: parsedLocation.lat.toString(),
-        lon: parsedLocation.lon.toString(),
-      },
-      profileImage: profileImageUrl,
-      workImages: workImagesUrls,
-    });
-    await newVendor.save();
-    const token = generateToken({ id: newVendor._id, role: "vendor" });
-    return res.success(201, "Vendor registered successfully", {
-      token,
-      vendor: {
-        id: newVendor._id,
-        name: newVendor.name,
-        email: newVendor.email,
-        phone: newVendor.phone,
-        role: newVendor.role,
-        description: newVendor.description,
-        location: newVendor.location,
-        profileImage: newVendor.profileImage,
-        workImages: newVendor.workImages,
-      },
-    });
   })
 );
 
@@ -199,8 +196,8 @@ router.get(
   checkAuth("vendor"),
   safeHandler(async (req, res) => {
     const vendorId = req.params.vendorId;
-    if (req.user.role === 'vendor' && req.user.id !== vendorId) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (req.user.role === "vendor" && req.user.id !== vendorId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const requests = await VendorRequest.find({ vendor: req.params.vendorId })
       .populate("user", "name email phone")
@@ -222,8 +219,15 @@ router.post(
       if (!request) {
         return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
       }
-      if (req.user.role === "vendor" && req.user.id !== request.vendor.toString()) {
-        return res.error(403, "You are not authorized to respond to this request", "UNAUTHORIZED_VENDOR");
+      if (
+        req.user.role === "vendor" &&
+        req.user.id !== request.vendor.toString()
+      ) {
+        return res.error(
+          403,
+          "You are not authorized to respond to this request",
+          "UNAUTHORIZED_VENDOR"
+        );
       }
       if (action === "reject") {
         await Promise.all([

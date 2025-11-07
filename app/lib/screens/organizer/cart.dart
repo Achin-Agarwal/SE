@@ -263,7 +263,7 @@ class _CartState extends ConsumerState<Cart> {
         return Icons.restaurant;
       case 'decorator':
         return Icons.brush;
-      case 'musician':
+      case 'dj':
         return Icons.music_note;
       default:
         return Icons.work;

@@ -41,7 +41,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     'Photographer',
     'Caterer',
     'Decorator',
-    'Musician',
+    'Dj',
   ];
 
   bool get isFormValid =>
