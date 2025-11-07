@@ -60,7 +60,6 @@ router.post(
       }
       const hashedPassword = await bcrypt.hash(password, 10);
       let profileImageUrl = null;
-      console.log(req.files?.profileImage)
       if (req.files?.profileImage) {
         profileImageUrl = req.files.profileImage[0].location;
         if (
