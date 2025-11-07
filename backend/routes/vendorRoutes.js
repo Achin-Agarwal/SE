@@ -56,7 +56,6 @@ router.post(
   safeHandler(async (req, res) => {
     try {
       let parsedBody = req.body;
-      console.log("FILES:", req.files);
       if (typeof parsedBody.location === "string") {
         try {
           parsedBody.location = JSON.parse(parsedBody.location);
@@ -67,6 +66,7 @@ router.post(
       const parsedData = vendorRegisterSchema.parse(parsedBody);
       const { name, email, password, phone, role, description, location } =
         parsedData;
+        console.log("Profile Image File:", req.files?.profileImage);
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
       });
@@ -78,7 +78,6 @@ router.post(
         );
       }
       const hashedPassword = await bcrypt.hash(password, 10);
-      console.log("Profile Image File:", req.files?.profileImage);
       let profileImageUrl = null;
       if (req.files?.profileImage) {
         profileImageUrl = req.files.profileImage[0].location;
