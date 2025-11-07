@@ -144,9 +144,7 @@ router.post(
       }
       if (
         !location.lat ||
-        !location.lon ||
-        location.lat.trim().length < 3 ||
-        location.lon.trim().length < 3
+        !location.lon
       ) {
         return res.error(400, "Invalid location format.", "VALIDATION_ERROR");
       }
