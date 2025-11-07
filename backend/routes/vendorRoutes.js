@@ -80,12 +80,14 @@ router.post(
       }
       const hashedPassword = await bcrypt.hash(password, 10);
       let profileImageUrl = null;
-      if (req.files?.profileImage?.length > 0) {
-        const file = req.files.profileImage[0];
-        if (file && file.location) {
-          profileImageUrl = file.location.startsWith("http")
-            ? file.location
-            : `https://${file.location}`;
+      if (req.files?.profileImage) {
+        profileImageUrl = req.files.profileImage[0].location;
+        if (
+          profileImageUrl &&
+          !profileImageUrl.startsWith("http://") &&
+          !profileImageUrl.startsWith("https://")
+        ) {
+          profileImageUrl = `https://${profileImageUrl}`;
         }
       }
       const workImagesUrls =
