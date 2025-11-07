@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:app/url.dart';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/launch_dialer.dart';
+import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/screens/login.dart';
@@ -29,65 +30,57 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
     setState(() => _isLoading = true);
     try {
       final vendorId = ref.read(userIdProvider);
-      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
       if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Session expired. Please log in again."),
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
+        if (!mounted) return;
+        showSnackBar(context, "Session expired. Please log in again.");
+        _navigateToLogin();
         return;
       }
 
-      final response = await http.get(
-        Uri.parse('$url/vendor/$vendorId/requests'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final uri = Uri.parse('$url/vendor/$vendorId/requests');
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        print(decoded);
-        if (decoded is List) {
-          setState(() {
-            _requests = decoded.whereType<Map<String, dynamic>>().toList();
-          });
+        final body = jsonDecode(response.body);
+        if (body is List) {
+          setState(
+            () => _requests = body.whereType<Map<String, dynamic>>().toList(),
+          );
         } else {
           setState(() => _requests = []);
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to fetch requests (${response.statusCode})"),
-          ),
-        );
+        _handleHttpError(response);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } on FormatException {
+      showSnackBar(context, "Invalid server response. Please try again.");
+    } on http.ClientException catch (e) {
+      showSnackBar(context, "Network error: ${e.message}");
+    } on Exception catch (e) {
+      showSnackBar(context, "Unexpected error: ${e.toString()}");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> respondToRequest(String requestId, String action) async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
       if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Missing authentication token.")),
-        );
+        showSnackBar(context, "Missing authentication token.");
         return;
       }
 
@@ -95,69 +88,10 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       String? details;
 
       if (action == "accept") {
-        bool submitted = false;
-
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text("Provide Offer Details"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _budgetController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Budget (₹)",
-                    prefixIcon: Icon(Ionicons.cash_outline),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _detailsController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: "Additional Details",
-                    prefixIcon: Icon(Ionicons.document_text_outline),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE91E63),
-                ),
-                onPressed: () {
-                  if (_budgetController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Please enter a budget.")),
-                    );
-                    return;
-                  }
-                  submitted = true;
-                  Navigator.pop(context);
-                },
-                child: const Text("Submit"),
-              ),
-            ],
-          ),
-        );
-
-        if (!submitted) return;
-        budget = _budgetController.text.trim();
-        details = _detailsController.text.trim();
-        _budgetController.clear();
-        _detailsController.clear();
+        final result = await _showOfferDialog();
+        if (result == null) return;
+        budget = result['budget'];
+        details = result['details'];
       }
 
       final payload = {
@@ -168,36 +102,116 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         if (details != null && details.isNotEmpty) "additionalDetails": details,
       };
 
-      final response = await http.post(
-        Uri.parse('$url/vendor/respond'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(payload),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$url/vendor/respond'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Request ${action == 'accept' ? 'accepted' : 'rejected'} successfully!",
-            ),
-            backgroundColor: action == 'accept' ? Colors.green : Colors.red,
-          ),
+        showSnackBar(
+          context,
+          "Request ${action == 'accept' ? 'accepted' : 'rejected'} successfully!",
+          color: action == 'accept' ? Colors.green : Colors.red,
         );
-        fetchRequests();
+        await fetchRequests();
       } else {
-        final data = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? "Action failed")),
-        );
+        _handleHttpError(response);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } on FormatException {
+      showSnackBar(context, "Invalid server response. Please try again.");
+    } on http.ClientException catch (e) {
+      showSnackBar(context, "Network error: ${e.message}");
+    } on Exception catch (e) {
+      showSnackBar(context, "Error: ${e.toString()}");
     }
+  }
+
+  Future<Map<String, String>?> _showOfferDialog() async {
+    bool submitted = false;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Provide Offer Details"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _budgetController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Budget (₹)",
+                prefixIcon: Icon(Ionicons.cash_outline),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _detailsController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: "Additional Details",
+                prefixIcon: Icon(Ionicons.document_text_outline),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE91E63),
+            ),
+            onPressed: () {
+              if (_budgetController.text.trim().isEmpty) {
+                showSnackBar(context, "Please enter a budget.");
+                return;
+              }
+              submitted = true;
+              Navigator.pop(context);
+            },
+            child: const Text("Submit"),
+          ),
+        ],
+      ),
+    );
+
+    if (!submitted) return null;
+    final result = {
+      "budget": _budgetController.text.trim(),
+      "details": _detailsController.text.trim(),
+    };
+    _budgetController.clear();
+    _detailsController.clear();
+    return result;
+  }
+
+  void _handleHttpError(http.Response response) {
+    try {
+      final data = jsonDecode(response.body);
+      final message = data['message'] ?? data['error'] ?? 'Request failed';
+      showSnackBar(context, "Error ${response.statusCode}: $message");
+    } catch (_) {
+      showSnackBar(context, "Error ${response.statusCode}: Failed to process request.");
+    }
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Widget _locationRow(Map<String, dynamic>? location) {
@@ -214,7 +228,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
     final longitude = coords[0];
     final latitude = coords[1];
-    final url = "https://www.google.com/maps?q=$latitude,$longitude";
+    final mapUrl = "https://www.google.com/maps?q=$latitude,$longitude";
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -228,13 +242,13 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: GestureDetector(
+              child: GestureDetector(
               onTap: () async {
-                if (await canLaunchUrl(Uri.parse(url))) {
-                  await launchUrl(
-                    Uri.parse(url),
-                    mode: LaunchMode.externalApplication,
-                  );
+                final uri = Uri.parse(mapUrl);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  showSnackBar(context, "Unable to open map link.");
                 }
               },
               child: Text(
@@ -262,6 +276,13 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
   }
 
   @override
+  void dispose() {
+    _budgetController.dispose();
+    _detailsController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F7),
@@ -279,11 +300,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
               SharedPreferences.getInstance().then(
                 (prefs) => prefs.remove('auth_token'),
               );
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
+              _navigateToLogin();
             },
           ),
         ],
@@ -307,425 +324,396 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
                   ),
                 ],
               )
-            : ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: _requests.length,
-                itemBuilder: (context, index) {
-                  final req = _requests[index];
-                  final user = (req['user'] is Map)
-                      ? req['user'] as Map<String, dynamic>
-                      : {};
-                  final userStatus = req['userStatus'] ?? "Pending";
-                  final vendorStatus = req['vendorStatus'] ?? "Pending";
-                  final statusColor = vendorStatus == "Accepted"
-                      ? Colors.green
-                      : vendorStatus == "Rejected"
-                      ? Colors.red
-                      : Colors.orange;
+            : _buildRequestList(),
+      ),
+    );
+  }
 
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.pink.shade50, Colors.white],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+  Widget _buildRequestList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _requests.length,
+      itemBuilder: (context, index) {
+        final req = _requests[index];
+        final user = (req['user'] is Map)
+            ? req['user'] as Map<String, dynamic>
+            : {};
+        final userStatus = req['userStatus'] ?? "Pending";
+        final vendorStatus = req['vendorStatus'] ?? "Pending";
+        final statusColor = vendorStatus == "Accepted"
+            ? Colors.green
+            : vendorStatus == "Rejected"
+            ? Colors.red
+            : Colors.orange;
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.pink.shade50, Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.pink.withOpacity(0.15),
+                offset: const Offset(0, 4),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 26,
+                      backgroundColor: Color(0xFFE91E63),
+                      child: Icon(
+                        Ionicons.person_outline,
+                        color: Colors.white,
+                        size: 26,
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.pink.withOpacity(0.15),
-                          offset: const Offset(0, 4),
-                          blurRadius: 10,
-                        ),
-                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 26,
-                                backgroundColor: Color(0xFFE91E63),
-                                child: Icon(
-                                  Ionicons.person_outline,
-                                  color: Colors.white,
-                                  size: 26,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user['name']?.toString() ??
-                                          "Unknown User",
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF333333),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      user['email'] ?? "No email",
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    if (user['phone'] != null &&
-                                        user['phone']
-                                            .toString()
-                                            .trim()
-                                            .isNotEmpty)
-                                      GestureDetector(
-                                        onTap: () => launchDialer(
-                                          context,
-                                          user['phone'].toString(),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 4.0,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              const Icon(
-                                                Ionicons.call_outline,
-                                                color: Colors.green,
-                                                size: 16,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                user['phone'].toString(),
-                                                style: const TextStyle(
-                                                  color: Colors.blueAccent,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                vendorStatus == "Accepted"
-                                    ? Ionicons.checkmark_circle
-                                    : vendorStatus == "Rejected"
-                                    ? Ionicons.close_circle
-                                    : Ionicons.time_outline,
-                                color: statusColor,
-                                size: 28,
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            children: [
-                              const Icon(Ionicons.briefcase_outline, size: 18),
-                              const SizedBox(width: 6),
-                              Text("Role: ${req['role'] ?? '—'}"),
-                            ],
-                          ),
-                          _locationRow(req['location']),
-                          if (req['startDateTime'] != null &&
-                              req['endDateTime'] != null)
-                            Builder(
-                              builder: (_) {
-                                final dateTime = formatDateAndTime(
-                                  req['startDateTime'],
-                                  req['endDateTime'],
-                                );
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Ionicons.calendar_outline,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text("Date: ${dateTime['date']}"),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Ionicons.time_outline,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text("Time: ${dateTime['time']}"),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                              horizontal: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  offset: const Offset(0, 2),
-                                  blurRadius: 6,
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Ionicons.document_text_outline,
-                                      size: 18,
-                                      color: Colors.black54,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        req['description'] != null &&
-                                                req['description']
-                                                    .toString()
-                                                    .trim()
-                                                    .isNotEmpty
-                                            ? req['description'].toString()
-                                            : 'No description provided',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Color(0xFF333333),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Ionicons.cash_outline,
-                                      size: 18,
-                                      color: Colors.black54,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      (req['budget'] != null &&
-                                              req['budget']
-                                                  .toString()
-                                                  .trim()
-                                                  .isNotEmpty)
-                                          ? '₹${req['budget']}'
-                                          : '—',
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFE91E63),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    if (req['budget'] != null)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.08),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Offered',
-                                          style: TextStyle(
-                                            color: Colors.green,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                if ((req['additionalDetails'] ?? '')
-                                    .toString()
-                                    .trim()
-                                    .isNotEmpty)
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Icon(
-                                        Ionicons.chatbubble_ellipses_outline,
-                                        size: 18,
-                                        color: Colors.black54,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          req['additionalDetails'].toString(),
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Color(0xFF444444),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
+                          Text(
+                            user['name']?.toString() ?? "Unknown User",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF333333),
                             ),
                           ),
-                          const SizedBox(height: 10),
-
-                          if (vendorStatus == "Accepted" &&
-                              userStatus == "Accepted")
+                          const SizedBox(height: 2),
+                          Text(
+                            user['email'] ?? "No email",
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (user['phone'] != null &&
+                              user['phone'].toString().trim().isNotEmpty)
                             GestureDetector(
-                              onTap: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => DraggableScrollableSheet(
-                                    initialChildSize: 0.9,
-                                    maxChildSize: 0.95,
-                                    minChildSize: 0.5,
-                                    expand: false,
-                                    builder: (context, scrollController) {
-                                      return VendorBookingDetailCard(
-                                        requestId: req['_id'] ?? '',
-                                        userName:
-                                            user['name'] ?? 'Unknown User',
-                                        userEmail: user['email'] ?? 'No email',
-                                        budget:
-                                            req['budget']?.toString() ?? '—',
-                                        description: req['description'] ?? '—',
-                                        role: req['role'] ?? '—',
-                                        location: req['location'],
-                                        startDateTime: req['startDateTime'],
-                                        endDateTime: req['endDateTime'],
-                                        scrollController: scrollController,
-                                        rating:
-                                            req['rating']?.toDouble() ?? 0.0,
-                                        ratingMessage:
-                                            req['ratingMessage'] ?? '',
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                              onTap: () => launchDialer(
+                                context,
+                                user['phone'].toString(),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Row(
                                   children: [
-                                    Icon(
-                                      Ionicons.eye_outline,
+                                    const Icon(
+                                      Ionicons.call_outline,
                                       color: Colors.green,
+                                      size: 16,
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 6),
                                     Text(
-                                      "View Booking Details",
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
+                                      user['phone'].toString(),
+                                      style: const TextStyle(
+                                        color: Colors.blueAccent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 12),
-                          if (userStatus == "Pending")
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                ElevatedButton.icon(
-                                  icon: const Icon(Ionicons.checkmark_outline),
-                                  label: const Text("Accept"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 28,
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  onPressed: () => respondToRequest(
-                                    req['_id'] ?? "",
-                                    "accept",
-                                  ),
-                                ),
-                                ElevatedButton.icon(
-                                  icon: const Icon(Ionicons.close_outline),
-                                  label: const Text("Reject"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 28,
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  onPressed: () => respondToRequest(
-                                    req['_id'] ?? "",
-                                    "reject",
-                                  ),
-                                ),
-                              ],
-                            )
-                          else
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: userStatus == 'Accepted'
-                                      ? Colors.green.withOpacity(0.1)
-                                      : Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  "User has ${userStatus.toLowerCase()} your offer",
-                                  style: TextStyle(
-                                    color: userStatus == 'Accepted'
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
                                 ),
                               ),
                             ),
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-      ),
+                    Icon(
+                      vendorStatus == "Accepted"
+                          ? Ionicons.checkmark_circle
+                          : vendorStatus == "Rejected"
+                          ? Ionicons.close_circle
+                          : Ionicons.time_outline,
+                      color: statusColor,
+                      size: 28,
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                Row(
+                  children: [
+                    const Icon(Ionicons.briefcase_outline, size: 18),
+                    const SizedBox(width: 6),
+                    Text("Role: ${req['role'] ?? '—'}"),
+                  ],
+                ),
+                _locationRow(req['location']),
+                if (req['startDateTime'] != null && req['endDateTime'] != null)
+                  Builder(
+                    builder: (_) {
+                      final dateTime = formatDateAndTime(
+                        req['startDateTime'],
+                        req['endDateTime'],
+                      );
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Ionicons.calendar_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text("Date: ${dateTime['date']}"),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Ionicons.time_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text("Time: ${dateTime['time']}"),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        offset: const Offset(0, 2),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Ionicons.document_text_outline,
+                            size: 18,
+                            color: Colors.black54,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              req['description'] != null &&
+                                      req['description']
+                                          .toString()
+                                          .trim()
+                                          .isNotEmpty
+                                  ? req['description'].toString()
+                                  : 'No description provided',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF333333),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(
+                            Ionicons.cash_outline,
+                            size: 18,
+                            color: Colors.black54,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            (req['budget'] != null &&
+                                    req['budget'].toString().trim().isNotEmpty)
+                                ? '₹${req['budget']}'
+                                : '—',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE91E63),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (req['budget'] != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'Offered',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if ((req['additionalDetails'] ?? '')
+                          .toString()
+                          .trim()
+                          .isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Ionicons.chatbubble_ellipses_outline,
+                              size: 18,
+                              color: Colors.black54,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                req['additionalDetails'].toString(),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF444444),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (vendorStatus == "Accepted" && userStatus == "Accepted")
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => DraggableScrollableSheet(
+                          initialChildSize: 0.9,
+                          maxChildSize: 0.95,
+                          minChildSize: 0.5,
+                          expand: false,
+                          builder: (context, scrollController) {
+                            return VendorBookingDetailCard(
+                              requestId: req['_id'] ?? '',
+                              userName: user['name'] ?? 'Unknown User',
+                              userEmail: user['email'] ?? 'No email',
+                              budget: req['budget']?.toString() ?? '—',
+                              description: req['description'] ?? '—',
+                              role: req['role'] ?? '—',
+                              location: req['location'],
+                              startDateTime: req['startDateTime'],
+                              endDateTime: req['endDateTime'],
+                              scrollController: scrollController,
+                              rating: req['rating']?.toDouble() ?? 0.0,
+                              ratingMessage: req['ratingMessage'] ?? '',
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Ionicons.eye_outline, color: Colors.green),
+                          SizedBox(width: 8),
+                          Text(
+                            "View Booking Details",
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                if (userStatus == "Pending")
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Ionicons.checkmark_outline),
+                        label: const Text("Accept"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () =>
+                            respondToRequest(req['_id'] ?? "", "accept"),
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Ionicons.close_outline),
+                        label: const Text("Reject"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () =>
+                            respondToRequest(req['_id'] ?? "", "reject"),
+                      ),
+                    ],
+                  )
+                else
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: userStatus == 'Accepted'
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "User has ${userStatus.toLowerCase()} your offer",
+                        style: TextStyle(
+                          color: userStatus == 'Accepted'
+                              ? Colors.green
+                              : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

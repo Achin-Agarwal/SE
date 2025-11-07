@@ -44,10 +44,6 @@ class _DashboardState extends ConsumerState<Dashboard> {
       const Cart(),
       const Bookings(),
     ];
-
-    final imageUrl = ref.watch(imageProvider);
-    final username = ref.watch(usernameProvider);
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {

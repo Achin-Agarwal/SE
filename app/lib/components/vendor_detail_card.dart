@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'package:app/providers/set.dart';
 import 'package:app/url.dart';
 import 'package:app/utils/launch_dialer.dart';
+import 'package:app/utils/mount.dart';
+import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:app/providers/userid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class VendorDetailCard extends ConsumerStatefulWidget {
   final String name;
@@ -43,14 +46,21 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
   bool _loading = false;
 
   Future<void> _handleAction(bool accept) async {
-    setState(() => _loading = true);
-
+    safeSetState(() => _loading = true);
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        showSnackBar(context, "Missing authentication token.");
+        return;
+      }
       final userId = ref.read(userIdProvider);
-
       final response = await http.post(
         Uri.parse("$url/user/acceptoffer"),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({
           "requestId": widget.requestId,
           "userId": userId,
@@ -58,29 +68,29 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
           "accept": accept,
         }),
       );
+      if (!mounted) return;
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              accept
+        final data = jsonDecode(response.body);
+        showSnackBar(
+          context,
+          data['message'] ??
+              (accept
                   ? "Offer accepted successfully!"
-                  : "Offer rejected successfully!",
-            ),
-          ),
+                  : "Offer rejected successfully!"),
+          color: Colors.green,
         );
         widget.onActionCompleted(widget.requestId);
       } else {
         final data = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? "Action failed")),
+        showSnackBar(
+          context,
+          data['message'] ?? "Action failed (${response.statusCode})",
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      showSnackBar(context, "Error: $e");
     } finally {
-      setState(() => _loading = false);
+      safeSetState(() => _loading = false);
     }
   }
 
@@ -95,7 +105,6 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 300),
       opacity: 1,
@@ -118,7 +127,6 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -207,7 +215,6 @@ class _VendorDetailCardState extends ConsumerState<VendorDetailCard> {
               ),
             ),
             SizedBox(height: size.height * 0.02),
-
             if (!widget.actionCompleted &&
                 widget.userStatus.toLowerCase() == "pending")
               _loading

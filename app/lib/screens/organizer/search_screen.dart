@@ -6,13 +6,15 @@ import 'package:app/providers/location.dart';
 import 'package:app/providers/description.dart';
 import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
+import 'package:app/screens/login.dart';
 import 'package:app/url.dart';
 import 'package:app/utils/mount.dart';
+import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'search_results.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -29,16 +31,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? currentLocation;
   double? latitude;
   double? longitude;
-
   List<Map<String, dynamic>> projects = [];
   Map<String, dynamic>? selectedProject;
   bool isLoadingProjects = false;
-
   List<String> disabledRoles = [];
-
   final TextEditingController descriptionController = TextEditingController();
   bool showResults = false;
-
   final List<String> roles = [
     'Photographer',
     'Caterer',
@@ -59,174 +57,150 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void initState() {
     super.initState();
     fetchProjects();
+    descriptionController.addListener(() => safeSetState(() {}));
   }
 
-  // Future<void> fetchDisabledRoles() async {
-  //   if (selectedProject == null || selectedProject?['id'] == null) return;
-  //   try {
-  //     final userId = ref.read(userIdProvider);
-  //     final projectId = selectedProject!['id'];
-  //     final apiUrl = Uri.parse('$url/user/accepted-roles/$userId/$projectId');
-  //     final response = await http.get(apiUrl);
-
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
-  //       setState(() {
-  //         disabledRoles = List<String>.from(data['roles'] ?? []);
-  //         if (selectedRole != null && disabledRoles.contains(selectedRole)) {
-  //           selectedRole = null;
-  //         }
-  //       });
-  //     } else {
-  //       setState(() {
-  //         disabledRoles = [];
-  //       });
-  //     }
-  //   } catch (e) {
-  //     debugPrint('Error fetching disabled roles: $e');
-  //     setState(() {
-  //       disabledRoles = [];
-  //     });
-  //   }
-  // }
-
   Future<void> _selectStartDateTime(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
-    if (pickedDate != null) {
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
+    if (pickedDate == null) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (pickedTime == null) return;
+    safeSetState(() {
+      selectedDate = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
       );
-      if (pickedTime != null) {
-        setState(() {
-          selectedDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-        });
-      }
-    }
+    });
   }
 
   Future<void> _selectEndDateTime(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: selectedDate ?? DateTime.now(),
       firstDate: selectedDate ?? DateTime.now(),
       lastDate: DateTime(2030),
     );
-    if (pickedDate != null) {
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
-      );
-      if (pickedTime != null) {
-        setState(() {
-          endDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-        });
-      }
+    if (pickedDate == null) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime:
+          (selectedDate != null &&
+              pickedDate.year == selectedDate!.year &&
+              pickedDate.month == selectedDate!.month &&
+              pickedDate.day == selectedDate!.day)
+          ? TimeOfDay(
+              hour: (selectedDate!.hour + 1) % 24,
+              minute: selectedDate!.minute,
+            )
+          : TimeOfDay.now(),
+    );
+    if (pickedTime == null) return;
+    final chosenEndDate = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    if (selectedDate != null && !chosenEndDate.isAfter(selectedDate!)) {
+      showSnackBar(context, "End date & time must be after start date & time");
+      return;
     }
+    safeSetState(() => endDate = chosenEndDate);
   }
 
   Future<void> fetchProjects() async {
-    safeSetState(() {
-      isLoadingProjects = true;
-    });
-
+    safeSetState(() => isLoadingProjects = true);
     try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        showSnackBar(context, "Session expired. Please log in again.");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+        return;
+      }
       final id = ref.read(userIdProvider);
       final apiUrl = Uri.parse('$url/user/project/$id');
-      final response = await http.get(apiUrl);
+      final response = await http.get(
+        apiUrl,
+        headers: {
+          "Authorization": 'Bearer $token',
+          "Content-Type": "application/json",
+        },
+      );
       if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final List<Map<String, dynamic>> fetchedProjects = (data as List)
+        final fetchedProjects = (data as List)
             .map((p) => {'id': p['_id'], 'name': p['name']})
             .toList();
-
-        safeSetState(() {
-          projects = fetchedProjects;
-        });
-
+        safeSetState(() => projects = fetchedProjects);
         final savedProject = ref.read(projectNameProvider);
         if (savedProject.isNotEmpty) {
           final matchedProject = fetchedProjects.firstWhere(
             (p) => p['name'] == savedProject,
             orElse: () => {},
           );
-
           if (matchedProject.isNotEmpty) {
-            safeSetState(() {
-              selectedProject = matchedProject;
-            });
-            // await fetchDisabledRoles();
+            safeSetState(() => selectedProject = matchedProject);
             _saveToProviders();
           }
         }
+      } else {
+        showSnackBar(context, "Failed to load projects");
       }
     } catch (e) {
-      debugPrint('Error fetching projects: $e');
+      showSnackBar(context, "Error fetching projects");
     } finally {
-      safeSetState(() {
-        isLoadingProjects = false;
-      });
+      safeSetState(() => isLoadingProjects = false);
     }
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enable location services')),
-      );
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permission denied')),
-        );
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        showSnackBar(context, 'Please enable location services');
         return;
       }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission permanently denied')),
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          showSnackBar(context, 'Location permission denied');
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        showSnackBar(context, 'Location permission permanently denied');
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
-      return;
+      safeSetState(() {
+        latitude = position.latitude;
+        longitude = position.longitude;
+        currentLocation =
+            "Lat: ${latitude!.toStringAsFixed(5)}, Lng: ${longitude!.toStringAsFixed(5)}";
+      });
+    } catch (e) {
+      showSnackBar(context, "Error fetching location");
     }
-
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-
-    setState(() {
-      latitude = position.latitude;
-      longitude = position.longitude;
-      currentLocation =
-          "Lat: ${position.latitude.toStringAsFixed(5)}, Lng: ${position.longitude.toStringAsFixed(5)}";
-    });
   }
 
   void _saveToProviders() {
@@ -249,14 +223,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (showResults) {
-          setState(() {
-            showResults = false;
-          });
+          safeSetState(() => showResults = false);
         } else {
           FocusManager.instance.primaryFocus?.unfocus();
         }
@@ -292,7 +263,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: size.height * 0.02),
-
           Text(
             "Select Project",
             style: TextStyle(
@@ -315,12 +285,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   ),
                   value: selectedProject,
-                  onChanged: (value) async {
-                    setState(() {
-                      selectedProject = value;
-                    });
-                    // await fetchDisabledRoles();
-                  },
+                  onChanged: (value) =>
+                      safeSetState(() => selectedProject = value),
                   items: projects
                       .map(
                         (proj) => DropdownMenuItem(
@@ -330,7 +296,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       )
                       .toList(),
                 ),
-
           SizedBox(height: size.height * 0.03),
           Text(
             "What are you looking for?",
@@ -352,10 +317,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _roleDropdown(Size size) {
-    final List<String> filteredRoles = roles
+    final filteredRoles = roles
         .where((r) => !disabledRoles.contains(r))
         .toList();
-
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(
         prefixIcon: Icon(Icons.work_outline, size: size.width * 0.075),
@@ -365,7 +329,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       value: filteredRoles.contains(selectedRole) ? selectedRole : null,
-      onChanged: (value) => setState(() => selectedRole = value),
+      onChanged: (value) => safeSetState(() => selectedRole = value),
       items: filteredRoles
           .map(
             (role) => DropdownMenuItem(
@@ -434,83 +398,89 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _locationField(Size size) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        "Location",
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: size.width * 0.048,
+  Widget _locationField(Size size) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Location",
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: size.width * 0.048,
+          ),
         ),
-      ),
-      SizedBox(height: size.height * 0.01),
-      Row(
-        children: [
-          Expanded(
-            child: Text(
-              currentLocation ?? "Location not fetched",
-              style: TextStyle(
-                fontSize: size.width * 0.04,
-                color: currentLocation == null ? Colors.grey : Colors.black,
+        SizedBox(height: size.height * 0.01),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                currentLocation ?? "Location not fetched",
+                style: TextStyle(
+                  fontSize: size.width * 0.04,
+                  color: currentLocation == null ? Colors.grey : Colors.black,
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
-            onPressed: _getCurrentLocation,
-          ),
-        ],
-      ),
-    ],
-  );
+            IconButton(
+              icon: const Icon(Icons.my_location, color: Color(0xFFFF4B7D)),
+              onPressed: _getCurrentLocation,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-  Widget _descriptionField(Size size) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SizedBox(height: size.height * 0.02),
-      Text(
-        "Description",
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: size.width * 0.048,
-        ),
-      ),
-      SizedBox(height: size.height * 0.01),
-      TextFormField(
-        controller: descriptionController,
-        maxLines: size.height > 700 ? 6 : 4,
-        decoration: InputDecoration(
-          hintText: "Add Description",
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-    ],
-  );
-
-  Widget _findVendorsButton(Size size) => Padding(
-    padding: EdgeInsets.only(top: size.height * 0.03),
-    child: SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: isFormValid
-            ? () {
-                _saveToProviders();
-                setState(() => showResults = true);
-              }
-            : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFF4B7D),
-          padding: EdgeInsets.symmetric(vertical: size.height * 0.018),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+  Widget _descriptionField(Size size) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: size.height * 0.02),
+        Text(
+          "Description",
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: size.width * 0.048,
           ),
         ),
-        child: Text(
-          "Find Vendors",
-          style: TextStyle(fontSize: size.width * 0.05, color: Colors.white),
+        SizedBox(height: size.height * 0.01),
+        TextFormField(
+          controller: descriptionController,
+          maxLines: size.height > 700 ? 6 : 4,
+          decoration: InputDecoration(
+            hintText: "Add Description",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _findVendorsButton(Size size) {
+    return Padding(
+      padding: EdgeInsets.only(top: size.height * 0.03),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: isFormValid
+              ? () {
+                  _saveToProviders();
+                  safeSetState(() => showResults = true);
+                }
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFF4B7D),
+            padding: EdgeInsets.symmetric(vertical: size.height * 0.018),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+          child: Text(
+            "Find Vendors",
+            style: TextStyle(fontSize: size.width * 0.05, color: Colors.white),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

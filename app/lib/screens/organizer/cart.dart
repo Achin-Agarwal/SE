@@ -3,12 +3,14 @@ import 'package:app/components/rolecard.dart';
 import 'package:app/screens/organizer/role_list.dart';
 import 'package:app/url.dart';
 import 'package:app/utils/mount.dart';
+import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:app/providers/projectId.dart';
 import 'package:app/providers/projectName.dart';
 import 'package:app/providers/userid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Cart extends ConsumerStatefulWidget {
   const Cart({super.key});
@@ -22,7 +24,6 @@ class _CartState extends ConsumerState<Cart> {
   String? selectedProjectId;
   List<Map<String, dynamic>> projects = [];
   List<String> roles = [];
-
   bool isLoadingProjects = false;
   bool isLoadingRoles = false;
 
@@ -31,65 +32,85 @@ class _CartState extends ConsumerState<Cart> {
     super.initState();
     _loadInitialProject();
     fetchProjects();
-    _fetchRoles(selectedProjectId ?? '');
   }
 
   void _loadInitialProject() {
     final savedId = ref.read(projectIdProvider);
-    if (savedId != null) {
-      setState(() {
-        selectedProjectId = savedId;
-      });
-    }
+    if (savedId != null) selectedProjectId = savedId;
+  }
+
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
   }
 
   Future<void> fetchProjects() async {
-    safeSetState(() {
-      isLoadingProjects = true;
-    });
+    safeSetState(() => isLoadingProjects = true);
     try {
-      final id = ref.read(userIdProvider);
-      final apiUrl = Uri.parse('$url/user/project/$id');
-      final response = await http.get(apiUrl);
+      final token = await _getToken();
+      if (token == null) {
+        showSnackBar(context, "Session expired. Please log in again.");
+        return;
+      }
+      final userId = ref.read(userIdProvider);
+      final response = await http.get(
+        Uri.parse('$url/user/project/$userId'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      );
       if (!mounted) return;
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<Map<String, dynamic>> fetchedProjects = (data as List)
-            .map((p) => {'id': p['_id'], 'name': p['name']})
-            .toList();
-
+        final List data = json.decode(response.body);
         safeSetState(() {
-          projects = fetchedProjects;
+          projects = data
+              .map((p) => {'id': p['_id'], 'name': p['name']})
+              .whereType<Map<String, dynamic>>()
+              .toList();
         });
+        if (selectedProjectId != null) {
+          _fetchRoles(selectedProjectId!);
+        }
+      } else {
+        showSnackBar(context, "Failed to load projects (${response.statusCode})");
       }
     } catch (e) {
       debugPrint('Error fetching projects: $e');
+      showSnackBar(context, "Error fetching projects. Check your connection.");
     } finally {
-      safeSetState(() {
-        isLoadingProjects = false;
-      });
+      safeSetState(() => isLoadingProjects = false);
     }
   }
 
   Future<void> _fetchRoles(String projectId) async {
+    if (projectId.isEmpty) return;
+    safeSetState(() {
+      isLoadingRoles = true;
+      roles = [];
+    });
     try {
-      safeSetState(() => isLoadingRoles = true);
-
+      final token = await _getToken();
+      if (token == null) {
+        showSnackBar(context, "Session expired. Please log in again.");
+        return;
+      }
       final userId = ref.read(userIdProvider);
-      final res = await http.post(
+      final response = await http.post(
         Uri.parse("$url/user/projectroles"),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
         body: jsonEncode({"userId": userId, "projectId": projectId}),
       );
       if (!mounted) return;
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        safeSetState(() {
-          roles = List<String>.from(data['roles']);
-        });
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        safeSetState(() => roles = List<String>.from(data['roles'] ?? []));
+      } else {
+        showSnackBar(context, "Failed to fetch roles (${response.statusCode})");
       }
     } catch (e) {
       debugPrint("Error fetching roles: $e");
+      showSnackBar(context, "Error fetching roles. Please try again.");
     } finally {
       safeSetState(() => isLoadingRoles = false);
     }
@@ -98,71 +119,29 @@ class _CartState extends ConsumerState<Cart> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return PopScope(
       canPop: selectedRole == null,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && selectedRole != null) {
-          setState(() {
-            selectedRole = null;
-          });
+          setState(() => selectedRole = null);
         }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Ongoing Deals',
-                  style: TextStyle(
-                    fontSize: size.width * 0.06,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (isLoadingProjects)
-                  const CircularProgressIndicator()
-                else
-                  DropdownButton<String>(
-                    hint: const Text("Select Project"),
-                    value: selectedProjectId,
-                    items: projects.map((p) {
-                      return DropdownMenuItem<String>(
-                        value: p['id'],
-                        child: Text(p['name'] ?? ''),
-                      );
-                    }).toList(),
-                    onChanged: (newProjectId) {
-                      setState(() {
-                        selectedProjectId = newProjectId;
-                        selectedRole = null;
-                        roles.clear();
-                      });
-                      final selected = projects.firstWhere(
-                        (p) => p['id'] == newProjectId,
-                        orElse: () => {'id': '', 'name': ''},
-                      );
-                      ref.read(projectIdProvider.notifier).state =
-                          selected['id'];
-                      ref.read(projectNameProvider.notifier).state =
-                          selected['name']!;
-                      if (newProjectId != null) _fetchRoles(newProjectId);
-                    },
-                  ),
-              ],
-            ),
-          ),
+          _buildHeader(size),
           const SizedBox(height: 10),
           Expanded(
             child: isLoadingRoles
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
-                    onRefresh: () => selectedProjectId != null
-                        ? _fetchRoles(selectedProjectId!)
-                        : fetchProjects(),
+                    onRefresh: () async {
+                      if (selectedProjectId != null) {
+                        await _fetchRoles(selectedProjectId!);
+                      } else {
+                        await fetchProjects();
+                      }
+                    },
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
@@ -186,6 +165,59 @@ class _CartState extends ConsumerState<Cart> {
     );
   }
 
+  Widget _buildHeader(Size size) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Ongoing Deals',
+            style: TextStyle(
+              fontSize: size.width * 0.06,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (isLoadingProjects)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            DropdownButton<String>(
+              hint: const Text("Select Project"),
+              value: selectedProjectId,
+              items: projects
+                  .map(
+                    (p) => DropdownMenuItem<String>(
+                      value: p['id'],
+                      child: Text(p['name'] ?? ''),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (newProjectId) {
+                if (newProjectId == null) return;
+                setState(() {
+                  selectedProjectId = newProjectId;
+                  selectedRole = null;
+                  roles.clear();
+                });
+                final selected = projects.firstWhere(
+                  (p) => p['id'] == newProjectId,
+                  orElse: () => {'id': '', 'name': ''},
+                );
+                ref.read(projectIdProvider.notifier).state = selected['id'];
+                ref.read(projectNameProvider.notifier).state =
+                    selected['name'] ?? '';
+                _fetchRoles(newProjectId);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRoleList(Size size) {
     if (roles.isEmpty) {
       return Center(
@@ -198,7 +230,6 @@ class _CartState extends ConsumerState<Cart> {
         ),
       );
     }
-
     return Column(
       key: const ValueKey('roleList'),
       children: [
@@ -206,16 +237,18 @@ class _CartState extends ConsumerState<Cart> {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
           child: Column(
-            children: [
-              for (final role in roles) ...[
-                RoleCard(
-                  label: role,
-                  icon: _getIconForRole(role),
-                  onTap: () => setState(() => selectedRole = role),
-                ),
-                SizedBox(height: size.height * 0.02),
-              ],
-            ],
+            children: roles
+                .map(
+                  (role) => Padding(
+                    padding: EdgeInsets.only(bottom: size.height * 0.02),
+                    child: RoleCard(
+                      label: role,
+                      icon: _getIconForRole(role),
+                      onTap: () => setState(() => selectedRole = role),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],

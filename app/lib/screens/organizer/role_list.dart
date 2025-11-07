@@ -3,10 +3,12 @@ import 'package:app/components/role_item_card.dart';
 import 'package:app/components/vendor_detail_card.dart';
 import 'package:app/providers/set.dart';
 import 'package:app/url.dart';
+import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:app/providers/userid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RoleList extends ConsumerStatefulWidget {
   const RoleList({
@@ -28,6 +30,10 @@ class _RoleListState extends ConsumerState<RoleList> {
   bool isLoading = true;
   Set<String> completedRequests = {};
 
+  void safeSetState(VoidCallback fn) {
+    if (mounted) setState(fn);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -38,69 +44,80 @@ class _RoleListState extends ConsumerState<RoleList> {
   }
 
   Future<void> fetchUserRequests() async {
-    setState(() => isLoading = true);
-    final userId = ref.read(userIdProvider);
-    final urls = Uri.parse("$url/user/$userId/requests/${widget.projectId}");
-
+    safeSetState(() => isLoading = true);
     try {
-      final response = await http.get(urls);
-
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        showSnackBar(context, "Missing authentication token.");
+        safeSetState(() => isLoading = false);
+        return;
+      }
+      final userId = ref.read(userIdProvider);
+      final urls = Uri.parse("$url/user/$userId/requests/${widget.projectId}");
+      final response = await http.get(
+        urls,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
-
-        setState(() {
-          roles = data
-              .where(
-                (req) =>
-                    req["role"].toString().toLowerCase() ==
-                    widget.selectedRole?.toLowerCase(),
-              )
-              .map((req) {
-                final vendor = req["vendor"];
-                final vendorStatus = req["vendorStatus"];
-
-                final status = vendorStatus?.toLowerCase() == "pending"
-                    ? "Requested"
-                    : "Accepted";
-
-                return {
-                  'requestId': req["_id"],
-                  'name': vendor["name"] ?? "Unknown",
-                  'description': req["additionalDetails"] ?? "No description",
-                  'rating': (vendor["rating"] ?? 0).toDouble(),
-                  'status': status,
-                  'statusColor': status == "Accepted"
-                      ? const Color(0xFFFF4B7D)
-                      : Colors.grey,
-                  'budget': req["budget"]?.toString() ?? "N/A",
-                  'email': vendor["email"],
-                  'phone': vendor["phone"],
-                  'role': vendor["role"],
-                  'userStatus': req["userStatus"]?.toString() ?? "pending",
-                };
-              })
-              .toList();
-
-          /// ✅ Sort — Accepted first
-          roles.sort((a, b) {
-            if (a['status'] == b['status']) return 0;
-            if (a['status'] == 'Accepted') return -1;
-            return 1;
-          });
-
+        final List<Map<String, dynamic>> parsedRoles = data
+            .where(
+              (req) =>
+                  req["role"].toString().toLowerCase() ==
+                  widget.selectedRole?.toLowerCase(),
+            )
+            .map((req) {
+              final vendor = req["vendor"];
+              final vendorStatus = req["vendorStatus"];
+              final status = vendorStatus?.toLowerCase() == "pending"
+                  ? "Requested"
+                  : "Accepted";
+              return {
+                'requestId': req["_id"],
+                'name': vendor["name"] ?? "Unknown",
+                'description': req["additionalDetails"] ?? "No description",
+                'rating': (vendor["rating"] ?? 0).toDouble(),
+                'status': status,
+                'statusColor': status == "Accepted"
+                    ? const Color(0xFFFF4B7D)
+                    : Colors.grey,
+                'budget': req["budget"]?.toString() ?? "N/A",
+                'email': vendor["email"],
+                'phone': vendor["phone"],
+                'role': vendor["role"],
+                'userStatus': req["userStatus"]?.toString() ?? "pending",
+              };
+            })
+            .toList();
+        parsedRoles.sort((a, b) {
+          if (a['status'] == b['status']) return 0;
+          if (a['status'] == 'Accepted') return -1;
+          return 1;
+        });
+        safeSetState(() {
+          roles = parsedRoles;
           isLoading = false;
         });
       } else {
-        throw Exception("Failed to fetch user requests");
+        final data = jsonDecode(response.body);
+        showSnackBar(
+          context,
+          data['message'] ?? "Failed to fetch user requests.",
+        );
+        safeSetState(() => isLoading = false);
       }
     } catch (e) {
-      debugPrint("Error fetching requests: $e");
-      setState(() => isLoading = false);
+      showSnackBar(context, "Error fetching requests: $e");
+      safeSetState(() => isLoading = false);
     }
   }
 
   void markRequestCompleted(String requestId) {
-    setState(() {
+    safeSetState(() {
       completedRequests.add(requestId);
     });
   }
@@ -130,7 +147,7 @@ class _RoleListState extends ConsumerState<RoleList> {
       canPop: selectedVendor == null,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && selectedVendor != null) {
-          setState(() {
+          safeSetState(() {
             selectedVendor = null;
           });
         }
@@ -151,7 +168,7 @@ class _RoleListState extends ConsumerState<RoleList> {
                   selectedVendor!['requestId'],
                 ),
                 phone: selectedVendor!['phone'],
-                onClose: () => setState(() => selectedVendor = null),
+                onClose: () => safeSetState(() => selectedVendor = null),
                 onActionCompleted: markRequestCompleted,
               )
             : SizedBox(
@@ -170,7 +187,7 @@ class _RoleListState extends ConsumerState<RoleList> {
                       return GestureDetector(
                         onTap: () {
                           if (role['status'] == 'Accepted') {
-                            setState(() => selectedVendor = role);
+                            safeSetState(() => selectedVendor = role);
                           }
                         },
                         child: RoleItemCard(

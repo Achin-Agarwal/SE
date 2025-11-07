@@ -3,6 +3,7 @@ import 'package:app/components/chat_screen.dart';
 import 'package:app/providers/navigation_provider.dart';
 import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
+import 'package:app/screens/login.dart';
 import 'package:app/url.dart';
 import 'package:app/utils/mount.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Home extends ConsumerStatefulWidget {
   const Home({super.key});
@@ -31,26 +33,59 @@ class _HomeState extends ConsumerState<Home> {
 
   Future<void> fetchProjects() async {
     safeSetState(() => isLoading = true);
-
     try {
-      final id = ref.read(userIdProvider);
-      final apiUrl = Uri.parse('$url/user/project/$id');
-      final response = await http.get(apiUrl);
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
         if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List;
-        safeSetState(() {
-          projects = data.map((e) => e as Map<String, dynamic>).toList();
-        });
-      } else {
-        safeSetState(() {
-          projects = [];
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Session expired. Please log in again."),
+          ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+        return;
       }
-    } catch (e) {
-      safeSetState(() {
-        projects = [];
-      });
+
+      final id = ref.read(userIdProvider);
+      final uri = Uri.parse('$url/user/project/$id');
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          safeSetState(() {
+            projects = data.whereType<Map<String, dynamic>>().toList();
+          });
+        } else {
+          safeSetState(() => projects = []);
+        }
+      } else {
+        _handleHttpError(response);
+        safeSetState(() => projects = []);
+      }
+    } on FormatException {
+      _showSnackBar("Invalid server response. Please try again.");
+      safeSetState(() => projects = []);
+    } on http.ClientException catch (e) {
+      _showSnackBar("Network error: ${e.message}");
+      safeSetState(() => projects = []);
+    } on Exception catch (e) {
+      _showSnackBar("Error: ${e.toString()}");
+      safeSetState(() => projects = []);
     } finally {
       safeSetState(() => isLoading = false);
     }
@@ -58,25 +93,38 @@ class _HomeState extends ConsumerState<Home> {
 
   Future<void> createProject(String name) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        _showSnackBar("Missing authentication token.");
+        return;
+      }
+
       final id = ref.read(userIdProvider);
-      final apiUrl = Uri.parse('$url/user/project/$id');
-      final response = await http.post(
-        apiUrl,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'name': name}),
-      );
-      if (response.statusCode == 201 || response.statusCode == 200) {
+      final uri = Uri.parse('$url/user/project/$id');
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'name': name}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
         ref.read(projectNameProvider.notifier).state = name;
         ref.read(navIndexProvider.notifier).state = 1;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create project')),
-        );
+        _handleHttpError(response);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } on FormatException {
+      _showSnackBar("Invalid server response. Please try again.");
+    } on http.ClientException catch (e) {
+      _showSnackBar("Network error: ${e.message}");
+    } on Exception catch (e) {
+      _showSnackBar("Error: ${e.toString()}");
     }
   }
 
@@ -91,9 +139,7 @@ class _HomeState extends ConsumerState<Home> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(dialogCtx).pop();
-            },
+            onPressed: () => Navigator.of(dialogCtx).pop(),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -117,25 +163,24 @@ class _HomeState extends ConsumerState<Home> {
       final done = aiPoints.where((e) => e['done'] == true).length;
       return total == 0 ? 0.0 : done / total;
     }
-
-    // Else, calculate from vendors' progress (sentRequests)
-    // final sentRequests = project['sentRequests'] as List?;
-    // if (sentRequests == null || sentRequests.isEmpty) return 0.0;
-
-    // int totalPoints = 0;
-    // int donePoints = 0;
-
-    // for (final req in sentRequests) {
-    //   final vendor = req['vendor'];
-    //   if (vendor != null && vendor['progress'] != null) {
-    //     final progressList = vendor['progress'] as List;
-    //     totalPoints += progressList.length;
-    //     donePoints += progressList.where((p) => p['done'] == true).length;
-    //   }
-    // }
-
-    // if (totalPoints == 0) return 0.0;
     return 0.0;
+  }
+
+  void _handleHttpError(http.Response response) {
+    try {
+      final data = jsonDecode(response.body);
+      final msg = data['message'] ?? data['error'] ?? 'Request failed';
+      _showSnackBar("Error ${response.statusCode}: $msg");
+    } catch (_) {
+      _showSnackBar("Error ${response.statusCode}: Failed to process request.");
+    }
+  }
+
+  void _showSnackBar(String message, {Color color = Colors.red}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   @override
@@ -164,7 +209,6 @@ class _HomeState extends ConsumerState<Home> {
                                 project['sentRequests'] as List?;
                             String dateStr = '';
                             String timeStr = '';
-
                             if (sentRequests != null &&
                                 sentRequests.isNotEmpty) {
                               final vendor = sentRequests[0]['vendor'];
@@ -181,10 +225,8 @@ class _HomeState extends ConsumerState<Home> {
                                 ).format(startDateTime);
                               }
                             }
-
                             final progress = calculateProgress(project);
                             final percentValue = (progress * 100).toInt();
-
                             return Card(
                               margin: const EdgeInsets.symmetric(
                                 vertical: 8,

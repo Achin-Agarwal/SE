@@ -12,6 +12,7 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   late SignUpController controller;
+  bool _passwordVisible = false;
 
   @override
   void initState() {
@@ -21,6 +22,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     } else {
       controller = Get.put(SignUpController());
     }
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<SignUpController>()) {
+      Get.delete<SignUpController>();
+    }
+    super.dispose();
   }
 
   @override
@@ -34,9 +43,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           bool showExtra =
               controller.role.value.isNotEmpty &&
               controller.role.value != 'User';
-
-          bool isEnabled = controller.isFormComplete();
-
+          controller.isFormComplete();
           return Stack(
             children: [
               SingleChildScrollView(
@@ -74,8 +81,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     const SizedBox(height: 25),
-
-                    // ✅ Use controller's form key
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -116,7 +121,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                             ),
                             const SizedBox(height: 20),
-
                             TextFormField(
                               controller: controller.name,
                               decoration: _inputDecoration(
@@ -125,7 +129,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                             ),
                             const SizedBox(height: 15),
-
                             DropdownButtonFormField<String>(
                               value: controller.role.value.isEmpty
                                   ? null
@@ -155,7 +158,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               },
                             ),
                             const SizedBox(height: 15),
-
                             TextFormField(
                               controller: controller.email,
                               keyboardType: TextInputType.emailAddress,
@@ -165,17 +167,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                             ),
                             const SizedBox(height: 15),
-
-                            TextFormField(
-                              controller: controller.password,
-                              obscureText: true,
-                              decoration: _inputDecoration(
-                                "Password",
-                                icon: Icons.lock,
-                              ),
+                            StatefulBuilder(
+                              builder: (context, setPassState) {
+                                return TextFormField(
+                                  controller: controller.password,
+                                  obscureText: !_passwordVisible,
+                                  decoration: InputDecoration(
+                                    labelText: 'Password',
+                                    prefixIcon: const Icon(
+                                      Icons.lock_rounded,
+                                      color: Colors.black54,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _passwordVisible
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                        color: Colors.black54,
+                                      ),
+                                      onPressed: () {
+                                        setPassState(() {
+                                          _passwordVisible = !_passwordVisible;
+                                        });
+                                      },
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  validator: (val) => val == null || val.isEmpty
+                                      ? "Enter your password"
+                                      : null,
+                                );
+                              },
                             ),
                             const SizedBox(height: 15),
-
                             TextFormField(
                               controller: controller.phone,
                               keyboardType: TextInputType.phone,
@@ -185,7 +213,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                             ),
                             const SizedBox(height: 20),
-
                             if (showExtra) ...[
                               TextFormField(
                                 controller: controller.description,
@@ -196,7 +223,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 maxLines: 2,
                               ),
                               const SizedBox(height: 20),
-
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -215,7 +241,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 ],
                               ),
                               const SizedBox(height: 10),
-
                               Obx(
                                 () => Wrap(
                                   spacing: 10,
@@ -277,7 +302,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 ),
                               ),
                               const SizedBox(height: 20),
-
                               Obx(
                                 () => Column(
                                   children: [
@@ -308,28 +332,47 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               const SizedBox(height: 30),
                             ],
-
-                            AnimatedOpacity(
-                              opacity: isEnabled ? 1 : 0.5,
-                              duration: const Duration(milliseconds: 300),
-                              child: ElevatedButton(
-                                onPressed: isEnabled
-                                    ? () => controller.submitForm(context)
-                                    : null,
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size(double.infinity, 52),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(28),
+                            Obx(
+                              () => AnimatedOpacity(
+                                opacity:
+                                    controller.isFormComplete() &&
+                                        !controller.isSubmitting.value
+                                    ? 1
+                                    : 0.5,
+                                duration: const Duration(milliseconds: 300),
+                                child: ElevatedButton(
+                                  onPressed:
+                                      controller.isFormComplete() &&
+                                          !controller.isSubmitting.value
+                                      ? () => controller.submitForm(context)
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      52,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                    ),
+                                    backgroundColor: const Color(0xFFFF5A8C),
                                   ),
-                                  backgroundColor: const Color(0xFFFF5A8C),
-                                ),
-                                child: const Text(
-                                  "Sign Up",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  child: controller.isSubmitting.value
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text(
+                                          "Sign Up",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
@@ -338,7 +381,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     const SizedBox(height: 30),
-
                     GestureDetector(
                       onTap: () => Get.back(),
                       child: const Text(

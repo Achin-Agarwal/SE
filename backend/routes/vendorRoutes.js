@@ -1,7 +1,6 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import {
-  vendorRegisterSchema,
   loginSchema,
 } from "../validators/auth-validators.js";
 import { safeHandler } from "../middlewares/safeHandler.js";
@@ -13,6 +12,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import dotenv from "dotenv";
+import checkAuth from "../middlewares/auth.js";
 
 dotenv.config();
 const s3 = new S3Client({
@@ -196,7 +196,12 @@ router.post(
 
 router.get(
   "/:vendorId/requests",
+  checkAuth("vendor"),
   safeHandler(async (req, res) => {
+    const vendorId = req.params.vendorId;
+    if (req.user.role === 'vendor' && req.user.id !== vendorId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     const requests = await VendorRequest.find({ vendor: req.params.vendorId })
       .populate("user", "name email phone")
       .lean();
@@ -206,10 +211,10 @@ router.get(
 
 router.post(
   "/respond",
+  checkAuth("vendor"),
   safeHandler(async (req, res) => {
     try {
       const { requestId, action, budget, additionalDetails } = req.body;
-
       if (!requestId || !action) {
         return res.error(400, "Missing requestId or action", "MISSING_FIELDS");
       }
@@ -217,28 +222,22 @@ router.post(
       if (!request) {
         return res.error(404, "Request not found", "REQUEST_NOT_FOUND");
       }
-
-      // ✅ Check if user has already accepted any vendor offer
-      // const userAccepted = await VendorRequest.findOne({
-      //   user: request.user,
-      //   role: request.role,
-      //   userStatus: "Accepted",
-      // });
-
-      // if (userAccepted) {
-      //   return res.error(
-      //     403,
-      //     "User has already accepted another offer. You cannot respond to this request.",
-      //     "USER_ALREADY_ACCEPTED"
-      //   );
-      // }
-
-      // ✅ If vendor rejects
+      if (req.user.role === "vendor" && req.user.id !== request.vendor.toString()) {
+        return res.error(403, "You are not authorized to respond to this request", "UNAUTHORIZED_VENDOR");
+      }
       if (action === "reject") {
         await Promise.all([
-          User.findByIdAndUpdate(request.user, {
-            $pull: { sentRequests: { vendor: request._id } },
-          }),
+          User.updateOne(
+            {
+              _id: request.user,
+              "projects._id": request.project,
+            },
+            {
+              $pull: {
+                "projects.$.sentRequests": { vendor: request._id },
+              },
+            }
+          ),
           Vendor.findByIdAndUpdate(request.vendor, {
             $pull: { receivedRequests: request._id },
           }),

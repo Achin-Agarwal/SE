@@ -26,6 +26,7 @@ class SignUpController extends GetxController {
   var currentLocation = ''.obs;
 
   final picker = ImagePicker();
+  var isSubmitting = false.obs;
 
   Future<void> pickProfileImage(BuildContext context) async {
     final ImagePicker picker = ImagePicker();
@@ -182,8 +183,6 @@ class SignUpController extends GetxController {
         profileImage.value == null) {
       return false;
     }
-
-    // For non-user roles: also require work images and location
     if (role.value != 'User') {
       if (workImages.isEmpty || currentLocation.value.isEmpty) return false;
     }
@@ -196,6 +195,9 @@ class SignUpController extends GetxController {
       Get.snackbar('Invalid', 'Please complete all required fields');
       return;
     }
+
+    if (isSubmitting.value) return;
+    isSubmitting.value = true;
 
     try {
       final String apiUrl = role.value == 'User'
@@ -236,14 +238,15 @@ class SignUpController extends GetxController {
       }
 
       var response = await request.send();
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         clearForm();
+        Get.delete<SignUpController>();
         Get.snackbar(
           'Success',
           'Signup successful!',
           snackPosition: SnackPosition.BOTTOM,
         );
+
         Get.offAll(() => const LoginScreen());
       } else {
         var error = await response.stream.bytesToString();
@@ -259,6 +262,8 @@ class SignUpController extends GetxController {
         'Something went wrong: $e',
         snackPosition: SnackPosition.BOTTOM,
       );
+    } finally {
+      isSubmitting.value = false;
     }
   }
 }

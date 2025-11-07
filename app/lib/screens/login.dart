@@ -26,6 +26,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _selectedRole;
   bool _isLoading = false;
   bool _passwordVisible = false;
+  String? emailError;
+  String? passwordError;
 
   final List<String> roles = ['User', 'Photographer', 'Caterer', 'Decorator'];
 
@@ -33,6 +35,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    setState(() {
+      emailError = null;
+      passwordError = null;
+    });
 
     try {
       final response = await http.post(
@@ -91,9 +97,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       } else {
         final errorMsg = data['message'] ?? 'Login failed';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMsg)));
+        final fieldErrors = data['data']?['fieldErrors'] ?? {};
+        setState(() {
+          emailError = (fieldErrors['email'] as List?)?.join('\n');
+          final passwordErrors = fieldErrors['password'] as List?;
+          if (passwordErrors != null && passwordErrors.isNotEmpty) {
+            passwordError = passwordErrors
+                .map((e) => '• ${e.replaceAll('Password must', '').trim()}')
+                .join('\n');
+          } else {
+            passwordError = null;
+          }
+        });
+        if (emailError == null && passwordError == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMsg),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     } catch (e) {
       final msg = e is http.ClientException
@@ -148,8 +171,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-
-                  // Wrapper Card
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -174,6 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
+                            errorText: emailError,
                           ),
                           validator: (val) =>
                               val!.isEmpty ? "Enter your email" : null,
@@ -205,6 +227,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
+                                errorText: passwordError,
+                                errorMaxLines: 5,
                               ),
                               validator: (val) =>
                                   val!.isEmpty ? "Enter your password" : null,
@@ -234,17 +258,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               val == null ? "Please select a role" : null,
                         ),
 
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              "Forgot Password?",
-                              style: TextStyle(color: Color(0xFFE57373)),
-                            ),
-                          ),
-                        ),
-
+                        // Align(
+                        //   alignment: Alignment.centerRight,
+                        //   child: TextButton(
+                        //     onPressed: () {},
+                        //     child: const Text(
+                        //       "Forgot Password?",
+                        //       style: TextStyle(color: Color(0xFFE57373)),
+                        //     ),
+                        //   ),
+                        // ),
                         const SizedBox(height: 12),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
