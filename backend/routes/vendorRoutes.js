@@ -55,7 +55,7 @@ router.post(
   upload,
   safeHandler(async (req, res) => {
     try {
-      let parsedBody = req.body;
+      const parsedBody = req.body;
       if (typeof parsedBody.location === "string") {
         try {
           parsedBody.location = JSON.parse(parsedBody.location);
@@ -64,8 +64,8 @@ router.post(
         }
       }
       const parsedData = vendorRegisterSchema.parse(parsedBody);
-      const { name, email, password, phone, role, description, location } = parsedData;
       console.log("Profile Image File:", req.files.profileImage);
+      const { name, email, password, phone, role, description, location } = parsedData;
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
       });
