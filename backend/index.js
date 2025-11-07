@@ -3,7 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import hpp from "hpp";
 import nocache from "nocache";
-import rateLimit from "express-rate-limit";
 import config from "./config/config.js";
 import responseHandler from "./middlewares/responseHandler.js";
 import connectMongo from "./config/db.js";
@@ -11,6 +10,9 @@ import ApiError from "./utils/errorClass.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
+
+app.set('trust proxy', 1);
+import rateLimit from "express-rate-limit";
 
 const app = express();
 

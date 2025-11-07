@@ -45,9 +45,60 @@ router.post(
   upload,
   safeHandler(async (req, res) => {
     try {
-      const parsedData = userRegisterSchema.parse(req.body);
-      const { name, email, password, phone, role } = parsedData;
-
+      const body = { ...req.body };
+      const { name, email, password, phone, role } = body;
+      if (!name || typeof name !== "string") {
+        return res.error(400, "Name is required.", "VALIDATION_ERROR");
+      }
+      if (name.trim().length < 3 || name.trim().length > 50) {
+        return res.error(
+          400,
+          "Name must be 3-50 characters long.",
+          "VALIDATION_ERROR"
+        );
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || typeof email !== "string") {
+        return res.error(400, "Email is required.", "VALIDATION_ERROR");
+      }
+      if (!emailRegex.test(email)) {
+        return res.error(400, "Please enter a valid email address.", "VALIDATION_ERROR");
+      }
+      if (email.length > 50) {
+        return res.error(400, "Email must not exceed 50 characters.", "VALIDATION_ERROR");
+      }
+      const passwordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}|:;<>,.?/~\-=\[\]])[A-Za-z\d!@#$%^&*()_+{}|:;<>,.?/~\-=\[\]]{6,}$/;
+      if (!password || typeof password !== "string") {
+        return res.error(400, "Password is required.", "VALIDATION_ERROR");
+      }
+      if (password.length < 6) {
+        return res.error(400, "Password must be at least 6 characters long.", "VALIDATION_ERROR");
+      }
+      if (!passwordRegex.test(password)) {
+        return res.error(
+          400,
+          "Password must contain at least one uppercase, one lowercase, one number, and one special character.",
+          "VALIDATION_ERROR"
+        );
+      }
+      const phoneRegex = /^\+?[0-9]{10,15}$/;
+      if (!phone || typeof phone !== "string") {
+        return res.error(400, "Phone number is required.", "VALIDATION_ERROR");
+      }
+      if (phone.length < 10 || phone.length > 15) {
+        return res.error(
+          400,
+          "Phone number must be 10-15 digits long.",
+          "VALIDATION_ERROR"
+        );
+      }
+      if (!phoneRegex.test(phone)) {
+        return res.error(400, "Please enter a valid phone number.", "VALIDATION_ERROR");
+      }
+      if (role !== "user") {
+        return res.error(400, "Role must be 'user'.", "VALIDATION_ERROR");
+      }
       const existingUser = await User.findOne({
         $or: [{ email }, { phone }],
       });
@@ -60,7 +111,7 @@ router.post(
       }
       const hashedPassword = await bcrypt.hash(password, 10);
       let profileImageUrl = null;
-      if (req.files?.profileImage) {
+      if (req.files?.profileImage && req.files.profileImage.length > 0) {
         profileImageUrl = req.files.profileImage[0].location;
         if (
           profileImageUrl &&
@@ -78,11 +129,8 @@ router.post(
         role: role.toLowerCase(),
         profileImage: profileImageUrl,
       });
-
       await newUser.save();
-
       const token = generateToken({ id: newUser._id, role: "user" });
-
       return res.success(201, "User registered successfully", {
         token,
         user: {
@@ -95,10 +143,8 @@ router.post(
         },
       });
     } catch (err) {
-      if (err.name === "ZodError") {
-        return res.error(400, err.errors[0]?.message, "VALIDATION_ERROR");
-      }
-      throw err;
+      console.error(err);
+      return res.error(500, "Something went wrong", "SERVER_ERROR");
     }
   })
 );

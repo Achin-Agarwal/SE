@@ -50,19 +50,15 @@ const formatSpacesUrl = (url) => {
   }
   return url;
 };
+
 router.post(
   "/register",
   upload,
   safeHandler(async (req, res) => {
     try {
-      // Capture uploaded files early
       const capturedProfileFiles = req.files?.profileImage;
       const capturedWorkFiles = req.files?.workImages;
-
-      // Copy and normalize body
       const body = { ...req.body };
-
-      // Parse location if sent as string
       if (typeof body.location === "string") {
         try {
           body.location = JSON.parse(body.location);
@@ -70,8 +66,6 @@ router.post(
           return res.error(400, "Invalid location format", "VALIDATION_ERROR");
         }
       }
-
-      // Manually extract fields
       const {
         name,
         email,
@@ -81,17 +75,81 @@ router.post(
         description,
         location,
       } = body;
-
-      // Basic validation
-      if (!name || !email || !password || !phone || !role) {
-        return res.error(400, "Missing required fields", "VALIDATION_ERROR");
+      if (!name || typeof name !== "string") {
+        return res.error(400, "Name is required.", "VALIDATION_ERROR");
       }
-
-      if (role.toLowerCase() !== "user" && (!description || !location)) {
-        return res.error(400, "Vendor must provide description and location", "VALIDATION_ERROR");
+      if (name.trim().length < 3 || name.trim().length > 50) {
+        return res.error(
+          400,
+          "Name must be 3-50 characters long.",
+          "VALIDATION_ERROR"
+        );
       }
-
-      // Check if vendor already exists
+      const emailRegex =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || typeof email !== "string") {
+        return res.error(400, "Email is required.", "VALIDATION_ERROR");
+      }
+      if (!emailRegex.test(email)) {
+        return res.error(400, "Please enter a valid email address.", "VALIDATION_ERROR");
+      }
+      if (email.length > 50) {
+        return res.error(400, "Email must not exceed 50 characters.", "VALIDATION_ERROR");
+      }
+      const passwordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}|:;<>,.?/~\-=\[\]])[A-Za-z\d!@#$%^&*()_+{}|:;<>,.?/~\-=\[\]]{6,}$/;
+      if (!password || typeof password !== "string") {
+        return res.error(400, "Password is required.", "VALIDATION_ERROR");
+      }
+      if (password.length < 6) {
+        return res.error(400, "Password must be at least 6 characters long.", "VALIDATION_ERROR");
+      }
+      if (!passwordRegex.test(password)) {
+        return res.error(
+          400,
+          "Password must contain uppercase, lowercase, number, and special character.",
+          "VALIDATION_ERROR"
+        );
+      }
+      const phoneRegex = /^\+?[0-9]{10,15}$/;
+      if (!phone || typeof phone !== "string") {
+        return res.error(400, "Phone number is required.", "VALIDATION_ERROR");
+      }
+      if (phone.length < 10 || phone.length > 15) {
+        return res.error(
+          400,
+          "Phone number must be 10-15 digits long.",
+          "VALIDATION_ERROR"
+        );
+      }
+      if (!phoneRegex.test(phone)) {
+        return res.error(400, "Please enter a valid phone number.", "VALIDATION_ERROR");
+      }
+      const validRoles = ["photographer", "caterer", "decorator", "dj"];
+      if (!role || !validRoles.includes(role.toLowerCase())) {
+        return res.error(400, "Please select a valid vendor role.", "VALIDATION_ERROR");
+      }
+      if (!description || typeof description !== "string") {
+        return res.error(400, "Description is required.", "VALIDATION_ERROR");
+      }
+      if (description.trim().length < 10 || description.trim().length > 500) {
+        return res.error(
+          400,
+          "Description must be 10-500 characters long.",
+          "VALIDATION_ERROR"
+        );
+      }
+      if (!location || typeof location !== "object") {
+        return res.error(400, "Location is required.", "VALIDATION_ERROR");
+      }
+      if (
+        !location.lat ||
+        !location.lon ||
+        location.lat.trim().length < 3 ||
+        location.lon.trim().length < 3
+      ) {
+        return res.error(400, "Invalid location format.", "VALIDATION_ERROR");
+      }
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
       });
@@ -102,21 +160,14 @@ router.post(
           "VENDOR_EXISTS"
         );
       }
-
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Process files
       let profileImageUrl = null;
       if (Array.isArray(capturedProfileFiles) && capturedProfileFiles.length > 0) {
         profileImageUrl = formatSpacesUrl(capturedProfileFiles[0].location);
       }
-
       const workImagesUrls = Array.isArray(capturedWorkFiles)
         ? capturedWorkFiles.map((file) => formatSpacesUrl(file.location))
         : [];
-
-      // Create vendor manually
       const newVendor = new Vendor({
         name,
         email,
@@ -124,17 +175,12 @@ router.post(
         password: hashedPassword,
         role: role.toLowerCase(),
         description: description || "",
-        location: location
-          ? { lat: location.lat.toString(), lon: location.lon.toString() }
-          : {},
+        location: { lat: location.lat.toString(), lon: location.lon.toString() },
         profileImage: profileImageUrl,
         workImages: workImagesUrls,
       });
-
       await newVendor.save();
-
       const token = generateToken({ id: newVendor._id, role: "vendor" });
-
       return res.success(201, "Vendor registered successfully", {
         token,
         vendor: {
