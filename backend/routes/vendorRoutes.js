@@ -56,6 +56,8 @@ router.post(
   safeHandler(async (req, res) => {
     try {
       let parsedBody = req.body;
+      console.log("FIELDS:", req.body);
+      console.log("FILES:", req.files);
       if (typeof parsedBody.location === "string") {
         try {
           parsedBody.location = JSON.parse(parsedBody.location);
@@ -78,18 +80,12 @@ router.post(
       }
       const hashedPassword = await bcrypt.hash(password, 10);
       let profileImageUrl = null;
-      if (
-        req.files &&
-        Array.isArray(req.files.profileImage) &&
-        req.files.profileImage.length > 0
-      ) {
-        profileImageUrl = req.files.profileImage[0].location;
-        if (
-          profileImageUrl &&
-          !profileImageUrl.startsWith("http://") &&
-          !profileImageUrl.startsWith("https://")
-        ) {
-          profileImageUrl = `https://${profileImageUrl}`;
+      if (req.files?.profileImage?.length > 0) {
+        const file = req.files.profileImage[0];
+        if (file && file.location) {
+          profileImageUrl = file.location.startsWith("http")
+            ? file.location
+            : `https://${file.location}`;
         }
       }
       const workImagesUrls =

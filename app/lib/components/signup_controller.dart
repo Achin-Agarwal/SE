@@ -239,14 +239,16 @@ class SignUpController extends GetxController {
         );
       }
 
-      for (var img in workImages) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'workImages',
-            img.path,
-            contentType: MediaType('image', 'jpeg'),
-          ),
-        );
+      if (role.value != 'User') {
+        for (var img in workImages) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'workImages',
+              img.path,
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+        }
       }
       print(request.fields);
 
