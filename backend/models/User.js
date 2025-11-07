@@ -16,11 +16,12 @@ const projectSchema = new mongoose.Schema({
   name: { type: String, required: true },
 
   sentRequests: [
-    {
-      vendor: { type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" },
-      role: { type: String, required: true },
-    },
-  ],
+  {
+    vendorRequest: { type: mongoose.Schema.Types.ObjectId, ref: "VendorRequest" },
+    role: { type: String, required: true },
+  },
+],
+
 
   // 💬 Chat history for this project
   chat: [chatMessageSchema],

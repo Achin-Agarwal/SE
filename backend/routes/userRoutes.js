@@ -132,9 +132,13 @@ router.get(
       );
     }
     const user = await User.findById(userId).populate({
-      path: "projects.sentRequests.vendor",
-      model: "VendorRequest",
+      path: "projects.sentRequests.vendorRequest",
+      populate: {
+        path: "vendor",
+        model: "Vendor",
+      },
     });
+
     if (!user) {
       return res.error(404, "User not found", "USER_NOT_FOUND");
     }

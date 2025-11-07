@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:app/url.dart';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/launch_dialer.dart';
+import 'package:app/utils/mount.dart';
 import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +28,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
   final TextEditingController _detailsController = TextEditingController();
 
   Future<void> fetchRequests() async {
-    setState(() => _isLoading = true);
+    safeSetState(() => _isLoading = true);
     try {
       final vendorId = ref.read(userIdProvider);
       final prefs = await SharedPreferences.getInstance();
@@ -54,11 +55,11 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         if (body is List) {
-          setState(
+          safeSetState(
             () => _requests = body.whereType<Map<String, dynamic>>().toList(),
           );
         } else {
-          setState(() => _requests = []);
+          safeSetState(() => _requests = []);
         }
       } else {
         _handleHttpError(response);
@@ -70,7 +71,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
     } on Exception catch (e) {
       showSnackBar(context, "Unexpected error: ${e.toString()}");
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) safeSetState(() => _isLoading = false);
     }
   }
 

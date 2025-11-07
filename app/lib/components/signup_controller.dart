@@ -217,11 +217,16 @@ class SignUpController extends GetxController {
         'email': email.text,
         'password': password.text,
         'phone': phone.text,
-        'description': description.text,
-        'role': role.value,
-        'location': '{"lat": ${latitude.value}, "lon": ${longitude.value}}',
+        'role': role.value.toLowerCase(),
       });
 
+      if (role.value != 'User') {
+        request.fields['description'] = description.text;
+        request.fields['location'] =
+            '{"lat": ${latitude.value}, "lon": ${longitude.value}}';
+      }
+
+      print(profileImage.value);
       if (profileImage.value != null) {
         request.files.add(
           await http.MultipartFile.fromPath(
@@ -229,6 +234,8 @@ class SignUpController extends GetxController {
             profileImage.value!.path,
           ),
         );
+      } else {
+        print("Profile image is null");
       }
 
       for (var img in workImages) {
@@ -236,6 +243,8 @@ class SignUpController extends GetxController {
           await http.MultipartFile.fromPath('workImages', img.path),
         );
       }
+
+      print(request.fields);
 
       var response = await request.send();
       if (response.statusCode == 200 || response.statusCode == 201) {
