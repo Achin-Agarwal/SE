@@ -55,22 +55,43 @@ router.post(
   upload,
   safeHandler(async (req, res) => {
     try {
-      let parsedBody = { ...req.body };
-      // capture uploaded files early to avoid issues if later operations touch req
+      // Capture uploaded files early
       const capturedProfileFiles = req.files?.profileImage;
       const capturedWorkFiles = req.files?.workImages;
 
-      if (typeof parsedBody.location === "string") {
+      // Copy and normalize body
+      const body = { ...req.body };
+
+      // Parse location if sent as string
+      if (typeof body.location === "string") {
         try {
-          parsedBody.location = JSON.parse(parsedBody.location);
+          body.location = JSON.parse(body.location);
         } catch {
           return res.error(400, "Invalid location format", "VALIDATION_ERROR");
         }
       }
-      // parse the normalized body (use parsedBody not req.body)
-      const parsedData = vendorRegisterSchema.parse(parsedBody);
-      console.log("Profile Image File (captured):", capturedProfileFiles);
-      const { name, email, password, phone, role, description, location } = parsedData;
+
+      // Manually extract fields
+      const {
+        name,
+        email,
+        password,
+        phone,
+        role,
+        description,
+        location,
+      } = body;
+
+      // Basic validation
+      if (!name || !email || !password || !phone || !role) {
+        return res.error(400, "Missing required fields", "VALIDATION_ERROR");
+      }
+
+      if (role.toLowerCase() !== "user" && (!description || !location)) {
+        return res.error(400, "Vendor must provide description and location", "VALIDATION_ERROR");
+      }
+
+      // Check if vendor already exists
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
       });
@@ -81,33 +102,39 @@ router.post(
           "VENDOR_EXISTS"
         );
       }
+
+      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Process files
       let profileImageUrl = null;
-      const profileFiles = Array.isArray(capturedProfileFiles)
-        ? capturedProfileFiles
-        : [];
-      if (profileFiles.length > 0) {
-        profileImageUrl = formatSpacesUrl(profileFiles[0].location);
+      if (Array.isArray(capturedProfileFiles) && capturedProfileFiles.length > 0) {
+        profileImageUrl = formatSpacesUrl(capturedProfileFiles[0].location);
       }
+
       const workImagesUrls = Array.isArray(capturedWorkFiles)
         ? capturedWorkFiles.map((file) => formatSpacesUrl(file.location))
         : [];
+
+      // Create vendor manually
       const newVendor = new Vendor({
         name,
         email,
         phone,
         password: hashedPassword,
         role: role.toLowerCase(),
-        description,
-        location: {
-          lat: location.lat.toString(),
-          lon: location.lon.toString(),
-        },
+        description: description || "",
+        location: location
+          ? { lat: location.lat.toString(), lon: location.lon.toString() }
+          : {},
         profileImage: profileImageUrl,
         workImages: workImagesUrls,
       });
+
       await newVendor.save();
+
       const token = generateToken({ id: newVendor._id, role: "vendor" });
+
       return res.success(201, "Vendor registered successfully", {
         token,
         vendor: {
@@ -123,10 +150,8 @@ router.post(
         },
       });
     } catch (err) {
-      if (err.name === "ZodError") {
-        return res.error(400, err.errors[0]?.message, "VALIDATION_ERROR");
-      }
-      throw err;
+      console.error(err);
+      return res.error(500, "Something went wrong", "SERVER_ERROR");
     }
   })
 );
