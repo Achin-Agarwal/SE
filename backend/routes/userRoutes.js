@@ -590,7 +590,7 @@ router.put(
     }
     if (
       req.user.role === "user" &&
-      req.user.id !== request.vendor.toString()
+      req.user.id !== request.user.toString()
     ) {
       return res.status(403).json({ error: "Unauthorized access" });
     }
