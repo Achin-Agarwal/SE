@@ -11,10 +11,9 @@ import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
 
+const app = express();
 app.set('trust proxy', 1);
 import rateLimit from "express-rate-limit";
-
-const app = express();
 
 app.use(helmet());
 app.use(hpp());
