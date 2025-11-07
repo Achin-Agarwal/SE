@@ -56,6 +56,10 @@ router.post(
   safeHandler(async (req, res) => {
     try {
       let parsedBody = { ...req.body };
+      // capture uploaded files early to avoid issues if later operations touch req
+      const capturedProfileFiles = req.files?.profileImage;
+      const capturedWorkFiles = req.files?.workImages;
+
       if (typeof parsedBody.location === "string") {
         try {
           parsedBody.location = JSON.parse(parsedBody.location);
@@ -63,8 +67,9 @@ router.post(
           return res.error(400, "Invalid location format", "VALIDATION_ERROR");
         }
       }
-      const parsedData = vendorRegisterSchema.parse(req.body);
-      console.log("Profile Image File:", req.files?.profileImage);
+      // parse the normalized body (use parsedBody not req.body)
+      const parsedData = vendorRegisterSchema.parse(parsedBody);
+      console.log("Profile Image File (captured):", capturedProfileFiles);
       const { name, email, password, phone, role, description, location } = parsedData;
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
@@ -78,13 +83,15 @@ router.post(
       }
       const hashedPassword = await bcrypt.hash(password, 10);
       let profileImageUrl = null;
-      const profileFiles = req.files?.profileImage;
-      if (Array.isArray(profileFiles) && profileFiles.length > 0) {
+      const profileFiles = Array.isArray(capturedProfileFiles)
+        ? capturedProfileFiles
+        : [];
+      if (profileFiles.length > 0) {
         profileImageUrl = formatSpacesUrl(profileFiles[0].location);
       }
-      const workImagesUrls =
-        req.files?.workImages?.map((file) => formatSpacesUrl(file.location)) ||
-        [];
+      const workImagesUrls = Array.isArray(capturedWorkFiles)
+        ? capturedWorkFiles.map((file) => formatSpacesUrl(file.location))
+        : [];
       const newVendor = new Vendor({
         name,
         email,
