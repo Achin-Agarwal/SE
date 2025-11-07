@@ -64,7 +64,7 @@ router.post(
         }
       }
       console.log("Profile Image File:", req.files?.profileImage);
-      const parsedData = vendorRegisterSchema.parse(parsedBody);
+      const parsedData = vendorRegisterSchema.parse(req.body);
       const { name, email, password, phone, role, description, location } = parsedData;
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
