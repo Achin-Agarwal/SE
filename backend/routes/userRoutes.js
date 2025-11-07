@@ -47,6 +47,7 @@ router.post(
     try {
       const parsedData = userRegisterSchema.parse(req.body);
       const { name, email, password, phone, role } = parsedData;
+
       const existingUser = await User.findOne({
         $or: [{ email }, { phone }],
       });
@@ -57,10 +58,23 @@ router.post(
           "USER_EXISTS"
         );
       }
+
       const hashedPassword = await bcrypt.hash(password, 10);
-      const profileImageUrl = req.files?.profileImage
-        ? req.files.profileImage[0].location
-        : null;
+
+      let profileImageUrl = null;
+      if (req.files?.profileImage) {
+        profileImageUrl = req.files.profileImage[0].location;
+
+        // ✅ Ensure the URL always starts with https://
+        if (
+          profileImageUrl &&
+          !profileImageUrl.startsWith("http://") &&
+          !profileImageUrl.startsWith("https://")
+        ) {
+          profileImageUrl = `https://${profileImageUrl}`;
+        }
+      }
+
       const newUser = new User({
         name,
         email,
@@ -69,8 +83,11 @@ router.post(
         role: role.toLowerCase(),
         profileImage: profileImageUrl,
       });
+
       await newUser.save();
+
       const token = generateToken({ id: newUser._id, role: "user" });
+
       return res.success(201, "User registered successfully", {
         token,
         user: {
