@@ -63,10 +63,10 @@ router.post(
           return res.error(400, "Invalid location format", "VALIDATION_ERROR");
         }
       }
+      console.log("Profile Image File:", req.files.profileImage);
       const parsedData = vendorRegisterSchema.parse(parsedBody);
       const { name, email, password, phone, role, description, location } =
         parsedData;
-        console.log("Profile Image File:", req.files.profileImage);
       const existingVendor = await Vendor.findOne({
         $or: [{ email }, { phone }],
       });

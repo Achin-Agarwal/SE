@@ -230,6 +230,7 @@ class SignUpController extends GetxController {
 
       if (profileImage.value != null &&
           File(profileImage.value!.path).existsSync()) {
+        print('Uploading profile image: ${profileImage.value!.path}');
         request.files.add(
           await http.MultipartFile.fromPath(
             'profileImage',
@@ -240,6 +241,7 @@ class SignUpController extends GetxController {
       }
 
       if (role.value != 'User') {
+        print('Uploading work images...');
         for (var img in workImages) {
           request.files.add(
             await http.MultipartFile.fromPath(
