@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class SignUpController extends GetxController {
   final formKey = GlobalKey<FormState>();
@@ -211,6 +212,7 @@ class SignUpController extends GetxController {
       );
 
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.headers['Content-Type'] = 'multipart/form-data';
 
       request.fields.addAll({
         'name': name.text,
@@ -226,27 +228,30 @@ class SignUpController extends GetxController {
             '{"lat": ${latitude.value}, "lon": ${longitude.value}}';
       }
 
-      print(profileImage.value);
-      if (profileImage.value != null) {
+      if (profileImage.value != null &&
+          File(profileImage.value!.path).existsSync()) {
         request.files.add(
           await http.MultipartFile.fromPath(
             'profileImage',
             profileImage.value!.path,
+            contentType: MediaType('image', 'jpeg'),
           ),
         );
-      } else {
-        print("Profile image is null");
       }
 
       for (var img in workImages) {
         request.files.add(
-          await http.MultipartFile.fromPath('workImages', img.path),
+          await http.MultipartFile.fromPath(
+            'workImages',
+            img.path,
+            contentType: MediaType('image', 'jpeg'),
+          ),
         );
       }
-
       print(request.fields);
 
       var response = await request.send();
+      print('Response status: ${response.statusCode}');
       if (response.statusCode == 200 || response.statusCode == 201) {
         clearForm();
         Get.delete<SignUpController>();
