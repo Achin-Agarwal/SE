@@ -31,17 +31,22 @@ class _BookingsState extends ConsumerState<Bookings> {
   @override
   void initState() {
     super.initState();
-    _loadToken();
-    _loadInitialProject();
-    fetchProjects();
-    _fetchRoles(selectedProjectId ?? '');
+    _loadInitialProject(); // Set selectedProjectId if saved
   }
 
-  Future<void> _loadToken() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Safe to use context here
+    fetchProjects();
+    if (selectedProjectId != null) {
+      _fetchRoles(selectedProjectId!);
+    }
+  }
+
+  Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    safeSetState(() {
-      token = prefs.getString('token');
-    });
+    return prefs.getString('auth_token');
   }
 
   void _loadInitialProject() {
@@ -57,27 +62,40 @@ class _BookingsState extends ConsumerState<Bookings> {
     safeSetState(() => isLoadingProjects = true);
     try {
       final id = ref.read(userIdProvider);
+      final token = await _getToken();
       if (token == null) {
-        showSnackBar(context, "Token not found");
+        _showSnackBarSafe("Session expired. Please log in again.");
         return;
       }
       final apiUrl = Uri.parse('$url/user/project/$id');
-      final response = await http.get(apiUrl, headers: {"Authorization": "Bearer $token","Content-Type": "application/json"});
+      final response = await http.get(
+        apiUrl,
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
       if (!mounted) return;
+
+      print('Fetch projects response: ${response.body}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final List<Map<String, dynamic>> fetchedProjects = (data as List)
-            .map((p) => {'id': p['_id'], 'name': p['name']})
-            .toList();
+        // If API returns object with 'data' key
+        final List fetchedProjects =
+            data['data'] ?? data; // fallback in case API returns list directly
         safeSetState(() {
-          projects = fetchedProjects;
+          projects = fetchedProjects
+              .map<Map<String, dynamic>>(
+                (p) => {'id': p['_id'], 'name': p['name']},
+              )
+              .toList();
         });
       } else {
         final data = json.decode(response.body);
-        showSnackBar(context, data['message'] ?? "Failed to fetch projects");
+        _showSnackBarSafe(data['message'] ?? "Failed to fetch projects");
       }
     } catch (e) {
-      showSnackBar(context, "Error fetching projects");
+      _showSnackBarSafe("Error fetching projects");
     } finally {
       safeSetState(() => isLoadingProjects = false);
     }
@@ -88,32 +106,41 @@ class _BookingsState extends ConsumerState<Bookings> {
     safeSetState(() => isLoadingRoles = true);
     try {
       final userId = ref.read(userIdProvider);
+      final token = await _getToken();
       if (token == null) {
-        showSnackBar(context, "Token not found");
+        _showSnackBarSafe("Token not found");
         return;
       }
       final res = await http.post(
         Uri.parse("$url/user/projectroles/accepted"),
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer $token"
+          "Authorization": "Bearer $token",
         },
         body: jsonEncode({"userId": userId, "projectId": projectId}),
       );
+      if (!mounted) return;
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         safeSetState(() {
-          roles = List<String>.from(data['roles']);
+          roles = List<String>.from(data['data']['roles'] ?? []);
         });
       } else {
         final data = jsonDecode(res.body);
-        showSnackBar(context, data['message'] ?? "Failed to fetch roles");
+        _showSnackBarSafe(data['message'] ?? "Failed to fetch roles");
       }
     } catch (e) {
-      showSnackBar(context, "Error fetching roles");
+      _showSnackBarSafe("Session expired. Please log in again.");
     } finally {
       safeSetState(() => isLoadingRoles = false);
     }
+  }
+
+  void _showSnackBarSafe(String message) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showSnackBar(context, message);
+    });
   }
 
   @override
@@ -131,6 +158,7 @@ class _BookingsState extends ConsumerState<Bookings> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Project dropdown
           Padding(
             padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
             child: Row(
@@ -165,8 +193,10 @@ class _BookingsState extends ConsumerState<Bookings> {
                         (p) => p['id'] == newProjectId,
                         orElse: () => {'id': '', 'name': ''},
                       );
-                      ref.read(projectIdProvider.notifier).state = selected['id'];
-                      ref.read(projectNameProvider.notifier).state = selected['name']!;
+                      ref.read(projectIdProvider.notifier).state =
+                          selected['id'];
+                      ref.read(projectNameProvider.notifier).state =
+                          selected['name']!;
                       if (newProjectId != null) _fetchRoles(newProjectId);
                     },
                   ),
@@ -174,6 +204,7 @@ class _BookingsState extends ConsumerState<Bookings> {
             ),
           ),
           const SizedBox(height: 10),
+          // Roles list
           Expanded(
             child: isLoadingRoles
                 ? const Center(child: CircularProgressIndicator())

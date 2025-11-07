@@ -55,22 +55,36 @@ class _CartState extends ConsumerState<Cart> {
       final userId = ref.read(userIdProvider);
       final response = await http.get(
         Uri.parse('$url/user/project/$userId'),
-        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
       if (!mounted) return;
       if (response.statusCode == 200) {
-        final List data = json.decode(response.body);
+        final decoded = json.decode(response.body);
+        if (decoded is! Map || decoded['data'] is! List) {
+          throw const FormatException("Invalid data format");
+        }
+
+        final List<dynamic> data = decoded['data'];
+
+        print('Fetched projects: $data');
         safeSetState(() {
           projects = data
               .map((p) => {'id': p['_id'], 'name': p['name']})
               .whereType<Map<String, dynamic>>()
               .toList();
         });
+
         if (selectedProjectId != null) {
           _fetchRoles(selectedProjectId!);
         }
       } else {
-        showSnackBar(context, "Failed to load projects (${response.statusCode})");
+        showSnackBar(
+          context,
+          "Failed to load projects (${response.statusCode})",
+        );
       }
     } catch (e) {
       debugPrint('Error fetching projects: $e');
@@ -102,9 +116,11 @@ class _CartState extends ConsumerState<Cart> {
         body: jsonEncode({"userId": userId, "projectId": projectId}),
       );
       if (!mounted) return;
+      print('Fetch roles response: ${response.body}');
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        safeSetState(() => roles = List<String>.from(data['roles'] ?? []));
+        final decoded = jsonDecode(response.body);
+        final rolesData = decoded['data']?['roles'] ?? [];
+        safeSetState(() => roles = List<String>.from(rolesData));
       } else {
         showSnackBar(context, "Failed to fetch roles (${response.statusCode})");
       }

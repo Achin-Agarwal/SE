@@ -70,9 +70,12 @@ class _SearchResultState extends ConsumerState<SearchResult> {
       print('Fetch Vendors Response Body: ${response.body}');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        if (decoded is! List)
+
+        if (decoded is! Map || decoded['data'] is! List) {
           throw const FormatException("Invalid data format");
-        final parsedVendors = decoded.map<Map<String, dynamic>>((v) {
+        }
+        final List<dynamic> dataList = decoded['data'];
+        final parsedVendors = dataList.map<Map<String, dynamic>>((v) {
           return {
             "id": v["_id"]?.toString() ?? "",
             "name": v["name"]?.toString() ?? "Unnamed",

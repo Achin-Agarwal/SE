@@ -581,7 +581,7 @@ router.get(
 
 router.put(
   "/vendorrequest/:id/progress",
-  checkAuth("vendor"),
+  checkAuth("user"),
   safeHandler(async (req, res) => {
     const { text, done } = req.body;
     const request = await VendorRequest.findById(req.params.id);
@@ -589,7 +589,7 @@ router.put(
       return res.status(404).json({ message: "Vendor request not found" });
     }
     if (
-      req.user.role === "vendor" &&
+      req.user.role === "user" &&
       req.user.id !== request.vendor.toString()
     ) {
       return res.status(403).json({ error: "Unauthorized access" });

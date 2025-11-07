@@ -45,7 +45,7 @@ class _RoleList2State extends ConsumerState<RoleList2> {
   Future<void> _loadTokenAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
     safeSetState(() {
-      token = prefs.getString('token');
+      token = prefs.getString('auth_token');
     });
     if (token == null) {
       showSnackBar(context, "Token not found");
@@ -60,7 +60,13 @@ class _RoleList2State extends ConsumerState<RoleList2> {
     try {
       final userId = ref.read(userIdProvider);
       final urls = Uri.parse("$url/user/$userId/accepted/${widget.projectId}");
-      final response = await http.get(urls, headers: {"Authorization": "Bearer $token","Content-Type": "application/json"});
+      final response = await http.get(
+        urls,
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
       if (!mounted) return;
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
