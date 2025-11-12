@@ -62,6 +62,7 @@ export async function postProjectMessage(req, res) {
   try {
     const { userId, projectName } = req.params;
     const { sender, message } = req.body;
+    console.log(req.params)
 
     if (!message || !sender)
       return res.status(400).json({ error: "sender and message required" });

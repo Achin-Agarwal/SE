@@ -61,7 +61,7 @@ app.use((err, req, res, next) => {
 app.use("/admin", adminRoutes,);
 app.use("/user", userRoutes);
 app.use("/vendor", vendorRoutes);
-app.use("/:userId", projectRoutes);
+app.use("/", projectRoutes);
 
 app.listen(config.server.port, () => {
   console.log(`Server running at http://localhost:${config.server.port}`);
