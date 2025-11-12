@@ -278,7 +278,8 @@ router.get(
       return res.status(403).json({ error: "Access denied" });
     }
     const requests = await VendorRequest.find({ vendor: req.params.vendorId })
-      .populate("user", "name email phone")
+      .populate("user", "name email phone profileImage")
+      .populate("vendor", "name profileImage")
       .lean();
     res.json(requests);
   })

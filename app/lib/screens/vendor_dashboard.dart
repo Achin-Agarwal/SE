@@ -54,6 +54,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
+        print(body);
         if (body is List) {
           safeSetState(
             () => _requests = body.whereType<Map<String, dynamic>>().toList(),
@@ -203,7 +204,10 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       final message = data['message'] ?? data['error'] ?? 'Request failed';
       showSnackBar(context, "Error ${response.statusCode}: $message");
     } catch (_) {
-      showSnackBar(context, "Error ${response.statusCode}: Failed to process request.");
+      showSnackBar(
+        context,
+        "Error ${response.statusCode}: Failed to process request.",
+      );
     }
   }
 
@@ -243,7 +247,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
           ),
           const SizedBox(width: 6),
           Expanded(
-              child: GestureDetector(
+            child: GestureDetector(
               onTap: () async {
                 final uri = Uri.parse(mapUrl);
                 if (await canLaunchUrl(uri)) {
@@ -289,18 +293,55 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
       backgroundColor: const Color(0xFFF9F6F7),
       appBar: AppBar(
         backgroundColor: const Color(0xFFE91E63),
-        title: const Text(
-          "Vendor Dashboard",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const SizedBox(width: 8),
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Colors.pink[50],
+              child: ClipOval(
+                child: Image.network(
+                  _requests[0]['vendor']['profileImage'],
+                  fit: BoxFit.cover,
+                  width: 44,
+                  height: 44,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.person, color: Colors.black54, size: 28),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Text(
+                  "Hello, ${_requests[0]['vendor']['name'].split(' ')[0]}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Ionicons.log_out_outline, color: Colors.white),
-            onPressed: () {
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () async {
               ref.invalidate(userIdProvider);
-              SharedPreferences.getInstance().then(
-                (prefs) => prefs.remove('auth_token'),
-              );
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('auth_token');
               _navigateToLogin();
             },
           ),
@@ -370,13 +411,28 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
               children: [
                 Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Color(0xFFE91E63),
-                      child: Icon(
-                        Ionicons.person_outline,
-                        color: Colors.white,
-                        size: 26,
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.pink[50],
+                      child: ClipOval(
+                        child: Image.network(
+                          user['profileImage'],
+                          fit: BoxFit.cover,
+                          width: 44,
+                          height: 44,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                                Icons.person_outline,
+                                color: Colors.black54,
+                                size: 28,
+                              ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
