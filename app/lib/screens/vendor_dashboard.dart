@@ -301,20 +301,32 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
               radius: 22,
               backgroundColor: Colors.pink[50],
               child: ClipOval(
-                child: Image.network(
-                  _requests[0]['vendor']['profileImage'],
-                  fit: BoxFit.cover,
-                  width: 44,
-                  height: 44,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.person, color: Colors.black54, size: 28),
-                ),
+                child:
+                    (_requests.isNotEmpty &&
+                        _requests[0]['vendor'] != null &&
+                        _requests[0]['vendor']['profileImage'] != null &&
+                        _requests[0]['vendor']['profileImage']
+                            .toString()
+                            .isNotEmpty)
+                    ? Image.network(
+                        _requests[0]['vendor']['profileImage'],
+                        fit: BoxFit.cover,
+                        width: 44,
+                        height: 44,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.person,
+                              color: Colors.black54,
+                              size: 28,
+                            ),
+                      )
+                    : const Icon(Icons.person, color: Colors.black54, size: 28),
               ),
             ),
             const SizedBox(width: 12),
@@ -322,7 +334,11 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Text(
-                  "Hello, ${_requests[0]['vendor']['name'].split(' ')[0]}",
+                  _requests.isNotEmpty &&
+                          _requests[0]['vendor'] != null &&
+                          _requests[0]['vendor']['name'] != null
+                      ? "Hello, ${_requests[0]['vendor']['name'].split(' ')[0]}"
+                      : "Hello, Vendor",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,

@@ -10,6 +10,7 @@ import ApiError from "./utils/errorClass.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
+import projectRoutes from "./routes/projectRoutes.js";
 
 const app = express();
 app.set('trust proxy', 1);
@@ -60,6 +61,7 @@ app.use((err, req, res, next) => {
 app.use("/admin", adminRoutes,);
 app.use("/user", userRoutes);
 app.use("/vendor", vendorRoutes);
+app.use("/project", projectRoutes);
 
 app.listen(config.server.port, () => {
   console.log(`Server running at http://localhost:${config.server.port}`);

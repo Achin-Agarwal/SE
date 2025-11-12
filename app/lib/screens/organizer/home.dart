@@ -1,5 +1,5 @@
 import 'dart:convert';
-// import 'package:app/components/chat_screen.dart';
+import 'package:app/components/chat_screen.dart';
 import 'package:app/providers/navigation_provider.dart';
 import 'package:app/providers/projectname.dart';
 import 'package:app/providers/userid.dart';
@@ -67,7 +67,7 @@ class _HomeState extends ConsumerState<Home> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        final data = decoded['data']; // Extract the 'data' array
+        final data = decoded['data'];
 
         if (data is List) {
           safeSetState(() {
@@ -287,12 +287,12 @@ class _HomeState extends ConsumerState<Home> {
                                   backgroundColor: Colors.grey.shade300,
                                 ),
                                 onTap: () {
-                                  // Navigator.push(
-                                  //   context,
-                                  //   MaterialPageRoute(
-                                  //     builder: (context) => const ChatScreen(),
-                                  //   ),
-                                  // );
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatScreen(projectId: project['id']?.toString() ?? project['_id']?.toString() ?? ''),
+                                    ),
+                                  );
                                 },
                               ),
                             );

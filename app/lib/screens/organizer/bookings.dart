@@ -37,7 +37,6 @@ class _BookingsState extends ConsumerState<Bookings> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Safe to use context here
     fetchProjects();
     if (selectedProjectId != null) {
       _fetchRoles(selectedProjectId!);

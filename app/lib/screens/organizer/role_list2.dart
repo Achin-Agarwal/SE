@@ -71,6 +71,7 @@ class _RoleList2State extends ConsumerState<RoleList2> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         final List requests = data["requests"] ?? [];
+        print(requests);
         projectName = data["project"]?["name"] ?? "Untitled Project";
         final fetchedRoles = requests
             .where(
