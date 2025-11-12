@@ -95,69 +95,100 @@ class _HomeState extends ConsumerState<Home> {
   }
 
   Future<void> createProject(String name) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      if (token == null) {
-        _showSnackBar("Missing authentication token.");
-        return;
-      }
-
-      final id = ref.read(userIdProvider);
-      final uri = Uri.parse('$url/user/project/$id');
-      final response = await http
-          .post(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'name': name}),
-          )
-          .timeout(const Duration(seconds: 15));
-      print('Create Project Response Body: ${response.body}');
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        ref.read(projectNameProvider.notifier).state = name;
-        ref.read(navIndexProvider.notifier).state = 1;
-      } else {
-        _handleHttpError(response);
-      }
-    } on FormatException {
-      _showSnackBar("Invalid server response. Please try again.");
-    } on http.ClientException catch (e) {
-      _showSnackBar("Network error: ${e.message}");
-    } on Exception catch (e) {
-      _showSnackBar("Error: ${e.toString()}");
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) {
+      _showSnackBar("Missing authentication token.");
+      return;
     }
+
+    final id = ref.read(userIdProvider);
+    final uri = Uri.parse('$url/user/project/$id');
+    final response = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'name': name}),
+    );
+
+    print('Create Project Response: ${response.body}');
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = jsonDecode(response.body);
+      final project = decoded['project'];
+
+      ref.read(projectNameProvider.notifier).state = name;
+      ref.read(navIndexProvider.notifier).state = 1;
+
+      // Navigate to ChatScreen with project name
+      if (mounted && project != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(projectName: name,userId: id),
+          ),
+        );
+      }
+    } else if (response.statusCode == 400) {
+      try {
+        final decoded = jsonDecode(response.body);
+        final msg = decoded['error'] ?? "Project already exists.";
+        _showSnackBar(msg);
+      } catch (_) {
+        _showSnackBar("Duplicate project name. Try another one.");
+      }
+    } else {
+      _showSnackBar("Failed to create project. Please try again.");
+    }
+  } catch (e) {
+    _showSnackBar("Error: $e");
   }
+}
 
   void showCreateProjectDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create New Project'),
-        content: TextField(
-          controller: projectNameController,
-          decoration: const InputDecoration(hintText: 'Project Name'),
+  projectNameController.clear();
+  showDialog(
+    context: context,
+    builder: (dialogCtx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Create New Project'),
+      content: TextField(
+        controller: projectNameController,
+        decoration: const InputDecoration(
+          hintText: 'Enter project name',
+          border: OutlineInputBorder(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (projectNameController.text.trim().isNotEmpty) {
-                createProject(projectNameController.text.trim());
-                Navigator.of(dialogCtx).pop();
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogCtx).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.pinkAccent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: () async {
+            final name = projectNameController.text.trim();
+            if (name.isEmpty) {
+              _showSnackBar("Please enter a project name.");
+              return;
+            }
+            Navigator.of(dialogCtx).pop();
+            await createProject(name);
+          },
+          child: const Text('Create'),
+        ),
+      ],
+    ),
+  );
+}
 
   double calculateProgress(Map<String, dynamic> project) {
     final aiPoints = project['aiPoints'] as List?;
@@ -287,13 +318,18 @@ class _HomeState extends ConsumerState<Home> {
                                   backgroundColor: Colors.grey.shade300,
                                 ),
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatScreen(projectId: project['id']?.toString() ?? project['_id']?.toString() ?? ''),
-                                    ),
-                                  );
-                                },
+  final projectName = project['name']?.toString() ?? '';
+  if (projectName.isEmpty) {
+    _showSnackBar("Invalid project name");
+    return;
+  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ChatScreen(projectName: projectName,userId: ref.read(userIdProvider),),
+    ),
+  );
+},
                               ),
                             );
                           },

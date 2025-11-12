@@ -4,16 +4,18 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ChatScreen extends StatefulWidget {
-  final String projectId;
-  const ChatScreen({super.key, required this.projectId});
+class ChatScreen extends ConsumerStatefulWidget {
+  final String projectName;
+  final String userId;
+  const ChatScreen({super.key, required this.projectName, required this.userId});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -32,9 +34,15 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _loadingChat = true;
     });
+    if (widget.userId.isEmpty) {
+      print("User ID not found in provider");
+      setState(() => _loadingChat = false);
+      return;
+    }
+
     try {
       final resp = await http.get(
-        Uri.parse("$BASE_URL/${widget.projectId}/chat"),
+        Uri.parse("$BASE_URL/$widget.userId/${widget.projectName}/chat"),
       );
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body);
@@ -51,7 +59,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         _scrollToBottom();
       } else {
-        // Handle error
+        print("Failed to load chat: ${resp.body}");
       }
     } catch (e) {
       print("loadChat error: $e");
@@ -77,7 +85,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final resp = await http.post(
-        Uri.parse("$BASE_URL/${widget.projectId}/chat"),
+        Uri.parse("$BASE_URL/$widget.userId/${widget.projectName}/chat"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"sender": "user", "message": text.trim()}),
       );
@@ -94,23 +102,18 @@ class _ChatScreenState extends State<ChatScreen> {
             });
           });
         } else if (body['chat'] != null) {
-          // fallback: rebuild from chat
           final chat = (body['chat'] as List<dynamic>);
           setState(() {
-            _messages.clear();
-            _messages.addAll(
-              chat.map(
-                (c) => {
-                  'sender': c['sender'],
-                  'text': c['message'],
-                  'timestamp': DateTime.parse(c['timestamp']),
-                },
-              ),
-            );
+            _messages
+              ..clear()
+              ..addAll(chat.map((c) => {
+                    'sender': c['sender'],
+                    'text': c['message'],
+                    'timestamp': DateTime.parse(c['timestamp']),
+                  }));
           });
         }
       } else {
-        // show error message as AI reply
         setState(() {
           _messages.add({
             'sender': 'ai',
@@ -136,6 +139,86 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _showFlowChartDialog() async {
+
+    showDialog(
+      context: context,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+    );
+
+    try {
+      final resp = await http.post(
+        Uri.parse("$BASE_URL/$widget.userId/${widget.projectName}/flowchart"),
+      );
+      Navigator.of(context).pop();
+
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body);
+        final aiPoints = body['aiPoints'] as List<dynamic>;
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Flow Chart / AI Points"),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: aiPoints.length,
+                separatorBuilder: (_, __) => const Divider(),
+                itemBuilder: (context, i) {
+                  final p = aiPoints[i];
+                  return ListTile(
+                    leading: Icon(
+                      p['done']
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: p['done'] ? Colors.green : Colors.grey,
+                    ),
+                    title: Text(p['text'] ?? ""),
+                    subtitle: p['details'] != null && p['details'] != ""
+                        ? Text(p['details'])
+                        : null,
+                    trailing: Text(
+                      p['lastUpdated'] != null
+                          ? DateFormat('dd MMM')
+                              .format(DateTime.parse(p['lastUpdated']))
+                          : '',
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Close"),
+              ),
+            ],
+          ),
+        );
+      } else {
+        _showErrorDialog("Failed to generate flowchart: ${resp.body}");
+      }
+    } catch (e) {
+      Navigator.of(context).pop();
+      _showErrorDialog("Network error: $e");
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Error"),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK")),
+        ],
+      ),
+    );
+  }
+
   void _scrollToBottom() {
     Timer(const Duration(milliseconds: 200), () {
       if (_scrollController.hasClients) {
@@ -156,97 +239,13 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _showFlowChartDialog() async {
-    showDialog(
-      context: context,
-      builder: (_) => Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
-
-    try {
-      final resp = await http.post(
-        Uri.parse("$BASE_URL/${widget.projectId}/flowchart"),
-      );
-      Navigator.of(context).pop(); // close loading
-      if (resp.statusCode == 200) {
-        final body = jsonDecode(resp.body);
-        final aiPoints = body['aiPoints'] as List<dynamic>;
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Flow Chart / AI Points"),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: aiPoints.length,
-                separatorBuilder: (_, __) => Divider(),
-                itemBuilder: (context, i) {
-                  final p = aiPoints[i];
-                  return ListTile(
-                    leading: Icon(
-                      p['done']
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      color: p['done'] ? Colors.green : Colors.grey,
-                    ),
-                    title: Text(p['text'] ?? ""),
-                    subtitle: p['details'] != null && p['details'] != ""
-                        ? Text(p['details'])
-                        : null,
-                    trailing: Text(
-                      p['lastUpdated'] != null
-                          ? DateFormat(
-                              'dd MMM',
-                            ).format(DateTime.parse(p['lastUpdated']))
-                          : '',
-                    ),
-                  );
-                },
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              ),
-            ],
-          ),
-        );
-      } else {
-        final err = resp.body;
-        showDialog(
-          context: context,
-          builder: (c) => AlertDialog(
-            title: Text("Error"),
-            content: Text("Failed to generate flowchart: $err"),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(c), child: Text("OK")),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      Navigator.of(context).pop();
-      showDialog(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: Text("Error"),
-          content: Text("Network error: $e"),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: Text("OK")),
-          ],
-        ),
-      );
-    }
-  }
-
   Widget _buildMessageBubble(Map<String, dynamic> msg) {
     final bool isUser = msg['sender'] == 'user';
     final dt = msg['timestamp'] is DateTime
         ? msg['timestamp'] as DateTime
         : DateTime.tryParse(msg['timestamp'].toString()) ?? DateTime.now();
-    final radius = Radius.circular(16);
+
+    final radius = const Radius.circular(16);
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -255,7 +254,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       decoration: BoxDecoration(
         gradient: isUser
-            ? LinearGradient(
+            ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [Color(0xFFFF6F96), Color(0xFFFF4B7D)],
@@ -265,10 +264,10 @@ class _ChatScreenState extends State<ChatScreen> {
         borderRadius: BorderRadius.only(
           topLeft: radius,
           topRight: radius,
-          bottomLeft: isUser ? radius : Radius.circular(6),
-          bottomRight: isUser ? Radius.circular(6) : radius,
+          bottomLeft: isUser ? radius : const Radius.circular(6),
+          bottomRight: isUser ? const Radius.circular(6) : radius,
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
@@ -299,19 +298,18 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     return Row(
-      mainAxisAlignment: isUser
-          ? MainAxisAlignment.end
-          : MainAxisAlignment.start,
+      mainAxisAlignment:
+          isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         if (!isUser)
-          Padding(
+          const Padding(
             padding: EdgeInsets.only(right: 8),
             child: CircleAvatar(child: Icon(Icons.smart_toy, size: 18)),
           ),
         bubble,
         if (isUser)
-          Padding(
+          const Padding(
             padding: EdgeInsets.only(left: 8),
             child: CircleAvatar(
               backgroundColor: Color(0xFFFF4B7D),
@@ -324,7 +322,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -357,15 +354,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       },
                     ),
             ),
-
-            // Input row
             SafeArea(
               top: false,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 color: Colors.white,
                 child: Row(
                   children: [

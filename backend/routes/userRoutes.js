@@ -213,7 +213,7 @@ router.post(
   checkAuth("user"),
   safeHandler(async (req, res) => {
     const { name } = req.body;
-    if (!name) {
+    if (!name || !name.trim()) {
       return res.status(400).json({ error: "Project name is required" });
     }
     if (req.user.role === "user" && req.user.id !== req.params.userId) {
@@ -223,11 +223,20 @@ router.post(
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    user.projects.push({ name, sentRequests: [] });
+    const duplicate = user.projects.some(
+      (project) => project.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+    if (duplicate) {
+      return res.status(400).json({
+        error: `A project named "${name}" already exists. Please choose a different name.`,
+      });
+    }
+    user.projects.push({ name: name.trim(), sentRequests: [] });
     await user.save();
+    const newProject = user.projects[user.projects.length - 1];
     res.status(201).json({
       message: "Project created successfully",
-      project: user.projects[user.projects.length - 1],
+      project: newProject,
     });
   })
 );
