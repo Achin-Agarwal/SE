@@ -5,11 +5,16 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String projectName;
   final String userId;
-  const ChatScreen({super.key, required this.projectName, required this.userId});
+  const ChatScreen({
+    super.key,
+    required this.projectName,
+    required this.userId,
+  });
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -22,12 +27,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isSending = false;
   bool _loadingChat = true;
 
-  static const String BASE_URL = "$url/project";
-
   @override
   void initState() {
     super.initState();
     _loadChat();
+  }
+
+  void _showSnackBar(String message, {Color color = Colors.red}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   Future<void> _loadChat() async {
@@ -41,8 +51,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        _showSnackBar("Missing authentication token.");
+        return;
+      }
       final resp = await http.get(
-        Uri.parse("$BASE_URL/$widget.userId/${widget.projectName}/chat"),
+        Uri.parse("$url/${widget.userId}/${widget.projectName}/chat"),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body);
@@ -84,9 +104,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        _showSnackBar("Missing authentication token.");
+        return;
+      }
       final resp = await http.post(
-        Uri.parse("$BASE_URL/$widget.userId/${widget.projectName}/chat"),
-        headers: {"Content-Type": "application/json"},
+        Uri.parse("$url/${widget.userId}/${widget.projectName}/chat"),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({"sender": "user", "message": text.trim()}),
       );
 
@@ -106,11 +135,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           setState(() {
             _messages
               ..clear()
-              ..addAll(chat.map((c) => {
+              ..addAll(
+                chat.map(
+                  (c) => {
                     'sender': c['sender'],
                     'text': c['message'],
                     'timestamp': DateTime.parse(c['timestamp']),
-                  }));
+                  },
+                ),
+              );
           });
         }
       } else {
@@ -140,7 +173,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _showFlowChartDialog() async {
-
     showDialog(
       context: context,
       builder: (_) => const Center(child: CircularProgressIndicator()),
@@ -148,8 +180,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        _showSnackBar("Missing authentication token.");
+        return;
+      }
       final resp = await http.post(
-        Uri.parse("$BASE_URL/$widget.userId/${widget.projectName}/flowchart"),
+        Uri.parse("$url/${widget.userId}/${widget.projectName}/flowchart"),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
       Navigator.of(context).pop();
 
@@ -181,8 +223,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         : null,
                     trailing: Text(
                       p['lastUpdated'] != null
-                          ? DateFormat('dd MMM')
-                              .format(DateTime.parse(p['lastUpdated']))
+                          ? DateFormat(
+                              'dd MMM',
+                            ).format(DateTime.parse(p['lastUpdated']))
                           : '',
                     ),
                   );
@@ -213,7 +256,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: const Text("Error"),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK")),
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("OK"),
+          ),
         ],
       ),
     );
@@ -298,8 +344,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
 
     return Row(
-      mainAxisAlignment:
-          isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+      mainAxisAlignment: isUser
+          ? MainAxisAlignment.end
+          : MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         if (!isUser)
@@ -357,8 +404,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             SafeArea(
               top: false,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 color: Colors.white,
                 child: Row(
                   children: [
