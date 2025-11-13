@@ -13,7 +13,7 @@ import vendorRoutes from "./routes/vendorRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 
 const app = express();
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 import rateLimit from "express-rate-limit";
 
 app.use(helmet());
@@ -58,7 +58,7 @@ app.use((err, req, res, next) => {
   res.status(500).send("Something went wrong!");
 });
 
-app.use("/admin", adminRoutes,);
+app.use("/admin", adminRoutes);
 app.use("/user", userRoutes);
 app.use("/vendor", vendorRoutes);
 app.use("/", projectRoutes);
