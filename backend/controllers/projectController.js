@@ -85,7 +85,7 @@ export async function generateFlowChart(req, res) {
     });
     const AI_API_URL =
       process.env.AI_API_URL ||
-      "https://eventflow-mglb.onrender.com/generate-flowchart";
+      "https://eventflow-kd8x.onrender.com/generate-flowchart";
     const payload = { chat_history };
     const aiResponse = await axios.post(AI_API_URL, payload);
     const { updated_plan_json, error } = aiResponse.data || {};
