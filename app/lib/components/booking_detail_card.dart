@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:app/providers/set.dart';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/detail_row.dart';
+import 'package:app/utils/launch_dialer.dart';
 import 'package:app/utils/mount.dart';
+import 'package:app/utils/showImage.dart';
 import 'package:app/utils/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +30,8 @@ class BookingDetailCard extends ConsumerStatefulWidget {
   final String? startDate;
   final String? endDate;
   final dynamic location;
+  final String phone;
+  final String profileImage;
 
   const BookingDetailCard({
     super.key,
@@ -43,6 +47,8 @@ class BookingDetailCard extends ConsumerStatefulWidget {
     required this.onActionCompleted,
     required this.vendorId,
     required this.projectName,
+    required this.phone,
+    required this.profileImage,
     this.startDate,
     this.endDate,
     this.location,
@@ -75,18 +81,15 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
     final longitude = coords[0];
     final latitude = coords[1];
     final url = "https://www.google.com/maps?q=$latitude,$longitude";
+    final size = MediaQuery.of(context).size;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             "Location",
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey),
           ),
           Flexible(
             child: GestureDetector(
@@ -103,8 +106,7 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
                 textAlign: TextAlign.right,
                 style: const TextStyle(
                   color: Colors.black87,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -353,13 +355,21 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
                       ],
                     ),
                   ),
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.grey[200],
-                    child: const Icon(
-                      Icons.person,
-                      size: 30,
-                      color: Colors.grey,
+                  GestureDetector(
+                    onTap: () => showImagePreview(context, widget.profileImage),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(50),
+                      child: Image.network(
+                        widget.profileImage,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => const Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -394,7 +404,43 @@ class _BookingDetailCardState extends ConsumerState<BookingDetailCard> {
               ),
             detailRow("Booking ID", widget.requestId),
             _locationRow(widget.location),
+
+            // 👉 ADD PHONE ROW HERE
+            if (widget.phone.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Phone",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => launchDialer(context, widget.phone),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.phone, color: Colors.green),
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.phone,
+                            style: const TextStyle(
+                              color: Colors.blueAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             const SizedBox(height: 16),
+
             if (!widget.actionCompleted &&
                 widget.userStatus.toLowerCase() == "pending")
               _loading

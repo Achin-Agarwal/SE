@@ -512,7 +512,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: const Text("AI ChatBot"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.auto_graph_outlined, color: Colors.white),
+            icon: const Icon(Icons.auto_graph_outlined, color: Colors.black),
             onPressed: _showFlowChartPopup,
           ),
         ],

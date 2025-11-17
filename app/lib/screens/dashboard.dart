@@ -108,27 +108,70 @@ class _DashboardState extends ConsumerState<Dashboard> {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Colors.pink[50],
-                    child: ClipOval(
-                      child: Image.network(
-                        ref.watch(imageProvider),
-                        fit: BoxFit.cover,
-                        width: 44,
-                        height: 44,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.person,
-                              color: Colors.black54,
-                              size: 28,
+                  GestureDetector(
+                    onTap: () {
+                      final imageUrl = ref.read(imageProvider);
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            backgroundColor: Colors.black,
+                            body: GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Center(
+                                child: Hero(
+                                  tag: "profileImageZoom",
+                                  child: InteractiveViewer(
+                                    panEnabled: true,
+                                    minScale: 1,
+                                    maxScale: 4,
+                                    child: Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                                size: 120,
+                                              ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: Hero(
+                      tag: "profileImageZoom",
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Colors.pink[50],
+                        child: ClipOval(
+                          child: Image.network(
+                            ref.watch(imageProvider),
+                            fit: BoxFit.cover,
+                            width: 44,
+                            height: 44,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.person,
+                                  color: Colors.black54,
+                                  size: 28,
+                                ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
