@@ -12,9 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('auth_token');
-  print(token);
   final role = prefs.getString('role');
-  print(role);
   runApp(
     ProviderScope(
       child: Shop(token: token, role: role),

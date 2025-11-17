@@ -318,8 +318,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _showFlowChartPopup() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
-    print("Token: $token");
     if (token == null) return;
+
     try {
       final userId = ref.read(userIdProvider);
       final response = await http.post(
@@ -330,75 +330,153 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final flowPoints = data["aiPoints"] ?? [];
-        showDialog(
-          context: context,
-          builder: (context) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Project Flow Chart",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: flowPoints.length,
-                      itemBuilder: (context, index) {
-                        final step = flowPoints[index];
-                        final text = step["text"];
-                        final isDone = step["done"] == true;
-                        return CheckboxListTile(
-                          title: Text(
-                            text,
-                            style: TextStyle(
-                              decoration: isDone
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              color: isDone ? Colors.grey : Colors.black,
+      if (response.statusCode != 200) {
+        showSnackBar(context, "Failed to load flow chart");
+        return;
+      }
+
+      final data = jsonDecode(response.body);
+      final List steps = data["aiPoints"] ?? [];
+
+      showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 600),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        const Text(
+                          "Project Flow Chart",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: steps.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final step = entry.value;
+                                final bool isDone = step["done"] == true;
+                                final bool isLast = index == steps.length - 1;
+
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Column(
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () async {
+                                            if (index > 0 &&
+                                                steps[index - 1]["done"] !=
+                                                    true) {
+                                              showSnackBar(
+                                                context,
+                                                "Complete previous steps first.",
+                                              );
+                                              return;
+                                            }
+
+                                            final updated = !isDone;
+                                            await _toggleFlowStep(
+                                              step["text"],
+                                              updated,
+                                            );
+
+                                            setState(() {
+                                              step["done"] = updated;
+                                            });
+                                          },
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: isDone
+                                                  ? const Color(0xFFFF4B7D)
+                                                  : Colors.grey.shade200,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              isDone
+                                                  ? Icons.check
+                                                  : Icons.circle_outlined,
+                                              size: 26,
+                                              color: isDone
+                                                  ? Colors.white
+                                                  : const Color(0xFFFF4B7D),
+                                            ),
+                                          ),
+                                        ),
+                                        if (!isLast)
+                                          Container(
+                                            width: 3,
+                                            height: 45,
+                                            color: isDone
+                                                ? const Color(0xFFFF4B7D)
+                                                : Colors.grey.shade300,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          step["text"],
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDone
+                                                ? Colors.black
+                                                : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ),
-                          value: isDone,
-                          onChanged: (newValue) async {
-                            await _toggleFlowStep(text, newValue ?? false);
-                            Navigator.pop(context);
-                            _showFlowChartPopup(); // reload popup
-                          },
-                        );
-                      },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF4B7D),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            "Close",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF4B7D),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      "Close",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      } else {
-        showSnackBar(context, "Failed to load flow chart");
-      }
+                ),
+              );
+            },
+          );
+        },
+      );
     } catch (e) {
       showSnackBar(context, "Error loading flow chart");
     }

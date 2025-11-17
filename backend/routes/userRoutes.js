@@ -522,7 +522,7 @@ router.get(
       userStatus: "Accepted",
       vendorStatus: "Accepted",
     })
-      .populate("vendor", "name role rating description email phone")
+      .populate("vendor", "name role rating description email phone profileImage")
       .lean();
     res.json({
       project: {
