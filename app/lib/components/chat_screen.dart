@@ -318,6 +318,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _showFlowChartPopup() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
+    print("Token: $token");
     if (token == null) return;
     try {
       final userId = ref.read(userIdProvider);

@@ -41,17 +41,15 @@ export async function postProjectMessage(req, res) {
   try {
     const { userId, projectName } = req.params;
     const { sender, message } = req.body;
-    console.log(req.params);
     if (!message || !sender)
       return res.status(400).json({ error: "sender and message required" });
     const found = await findProjectByName(userId, projectName);
     if (!found) return res.status(404).json({ error: "Project not found" });
     const { user, project } = found;
-    const userMsg = { sender, message, timestamp: new Date() };
-    project.chat.push(userMsg);
-    await user.save();
+    const tempMsg = { sender, message, timestamp: new Date() };
+    const last20 = [...project.chat.slice(-19), tempMsg];
     const chat_history = {};
-    project.chat.slice(-20).forEach((m, i) => {
+    last20.forEach((m) => {
       chat_history[m.sender] = m.message;
     });
     const payload = {
@@ -63,7 +61,9 @@ export async function postProjectMessage(req, res) {
     const aiText =
       aiResponse.data?.reply_text ||
       "Sorry, I couldn't get a response from the AI.";
+    const userMsg = { sender, message, timestamp: new Date() };
     const aiMsg = { sender: "ai", message: aiText, timestamp: new Date() };
+    project.chat.push(userMsg);
     project.chat.push(aiMsg);
     await user.save();
     return res.json({ aiMessage: aiMsg });
