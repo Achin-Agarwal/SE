@@ -241,16 +241,9 @@ router.post(
         },
       });
     }
-    const vendor = await Vendor.findOne({ email });
+    const vendor = await Vendor.findOne({ email,role: role.toLowerCase() });
     if (!vendor) {
       return res.error(401, "Invalid email or password", "INVALID_CREDENTIALS");
-    }
-    if (vendor.role !== role.toLowerCase()) {
-      return res.error(
-        400,
-        `Role mismatch. This vendor is registered as '${vendor.role}'.`,
-        "ROLE_MISMATCH"
-      );
     }
     const isPasswordValid = bcrypt.compare(password, vendor.password);
     if (!isPasswordValid) {

@@ -315,7 +315,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(
-                                          0xFF1A237E,
+                                          0xFFFF5A8C,
                                         ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(

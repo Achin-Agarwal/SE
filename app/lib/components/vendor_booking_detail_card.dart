@@ -3,6 +3,9 @@ import 'package:app/utils/detail_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class VendorBookingDetailCard extends ConsumerStatefulWidget {
@@ -83,6 +86,56 @@ class _VendorBookingDetailCardState
     );
   }
 
+  Future<void> _generateAndDownloadPDF() async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "Booking Details",
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text("Client Name: ${widget.userName}"),
+              pw.Text("Client Email: ${widget.userEmail}"),
+              pw.Text("Role: ${widget.role}"),
+              pw.Text("Budget: ₹${widget.budget}"),
+              if (widget.startDateTime != null)
+                pw.Text(
+                  "Event Date: ${DateFormat('dd/MM/yy').format(DateTime.parse(widget.startDateTime!).toLocal())}",
+                ),
+              if (widget.startDateTime != null)
+                pw.Text(
+                  "Event Time: ${DateFormat('h:mm a').format(DateTime.parse(widget.startDateTime!).toLocal())}",
+                ),
+              pw.Text("Description: ${widget.description}"),
+              if (widget.location != null &&
+                  widget.location['coordinates'] != null)
+                pw.Text(
+                  "Location: ${widget.location['coordinates'][1]}, ${widget.location['coordinates'][0]}",
+                ),
+              pw.SizedBox(height: 20),
+              if (widget.rating != null && widget.rating != 0)
+                pw.Text("Rating: ${widget.rating} ⭐"),
+              if (widget.ratingMessage != null &&
+                  widget.ratingMessage!.isNotEmpty)
+                pw.Text("Feedback: \"${widget.ratingMessage}\""),
+            ],
+          );
+        },
+      ),
+    );
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -114,10 +167,22 @@ class _VendorBookingDetailCardState
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              "Booking Confirmed 🎉",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Booking Confirmed 🎉",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+
+                // ---> DOWNLOAD ICON ADDED HERE <---
+                IconButton(
+                  icon: Icon(Icons.download, color: Colors.blue),
+                  onPressed: _generateAndDownloadPDF,
+                ),
+              ],
             ),
+
             const Text(
               "Here are your client details:",
               style: TextStyle(color: Colors.grey),

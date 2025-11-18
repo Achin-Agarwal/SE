@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/providers/image.dart';
 import 'package:app/url.dart';
 import 'package:app/utils/date_utils.dart';
 import 'package:app/utils/launch_dialer.dart';
@@ -54,7 +55,6 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
-        print(body);
         if (body is List) {
           safeSetState(
             () => _requests = body.whereType<Map<String, dynamic>>().toList(),
@@ -289,6 +289,20 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    // Get vendor image from provider (if your provider stores vendor profile image).
+    final vendorImageUrl = ref.watch(imageProvider);
+
+    // Safely extract vendor name from first request (if available)
+    String vendorFirstName = "Vendor";
+    if (_requests.isNotEmpty &&
+        _requests[0]['vendor'] != null &&
+        _requests[0]['vendor']['name'] != null) {
+      final fullName = _requests[0]['vendor']['name'].toString();
+      if (fullName.trim().isNotEmpty) {
+        vendorFirstName = fullName.split(' ')[0];
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F7),
       appBar: AppBar(
@@ -297,36 +311,55 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
         title: Row(
           children: [
             const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: Colors.pink[50],
-              child: ClipOval(
-                child:
-                    (_requests.isNotEmpty &&
-                        _requests[0]['vendor'] != null &&
-                        _requests[0]['vendor']['profileImage'] != null &&
-                        _requests[0]['vendor']['profileImage']
-                            .toString()
-                            .isNotEmpty)
-                    ? Image.network(
-                        _requests[0]['vendor']['profileImage'],
-                        fit: BoxFit.cover,
-                        width: 44,
-                        height: 44,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
+            // Vendor avatar with unique hero tag "vendorImage"
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        VendorImageZoomScreen(imageUrl: vendorImageUrl),
+                  ),
+                );
+              },
+              child: Hero(
+                tag: "vendorImage",
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Colors.pink[50],
+                  child: ClipOval(
+                    child: Builder(
+                      builder: (context) {
+                        final url = vendorImageUrl;
+                        if (url == null || url.toString().trim().isEmpty) {
+                          return const Icon(
+                            Icons.person,
+                            color: Colors.black54,
+                            size: 28,
                           );
-                        },
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.person,
-                              color: Colors.black54,
-                              size: 28,
-                            ),
-                      )
-                    : const Icon(Icons.person, color: Colors.black54, size: 28),
+                        }
+                        return Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          width: 44,
+                          height: 44,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                                Icons.person,
+                                color: Colors.black54,
+                                size: 28,
+                              ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -337,7 +370,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
                   _requests.isNotEmpty &&
                           _requests[0]['vendor'] != null &&
                           _requests[0]['vendor']['name'] != null
-                      ? "Hello, ${_requests[0]['vendor']['name'].split(' ')[0]}"
+                      ? "Hello, $vendorFirstName"
                       : "Hello, Vendor",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
@@ -391,6 +424,7 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: _requests.length,
+      reverse: true,
       itemBuilder: (context, index) {
         final req = _requests[index];
         final user = (req['user'] is Map)
@@ -403,6 +437,10 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
             : vendorStatus == "Rejected"
             ? Colors.red
             : Colors.orange;
+
+        // Unique hero tag for this user's image
+        final userHeroTag = "userImage_${req['_id'] ?? index}";
+
         return Container(
           margin: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
@@ -427,27 +465,63 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Colors.pink[50],
-                      child: ClipOval(
-                        child: Image.network(
-                          user['profileImage'],
-                          fit: BoxFit.cover,
-                          width: 44,
-                          height: 44,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(
-                                Icons.person_outline,
-                                color: Colors.black54,
-                                size: 28,
-                              ),
+                    // User avatar with unique hero tag
+                    GestureDetector(
+                      onTap: () {
+                        final imageUrl = (user['profileImage'] ?? '')
+                            .toString();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UserImageZoomScreen(
+                              heroTag: userHeroTag,
+                              imageUrl: imageUrl,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Hero(
+                        tag: userHeroTag,
+                        child: CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Colors.pink[50],
+                          child: ClipOval(
+                            child: Builder(
+                              builder: (context) {
+                                final url =
+                                    user['profileImage']?.toString() ?? '';
+                                if (url.trim().isEmpty) {
+                                  return const Icon(
+                                    Icons.person,
+                                    color: Colors.black54,
+                                    size: 28,
+                                  );
+                                }
+                                return Image.network(
+                                  url,
+                                  fit: BoxFit.cover,
+                                  width: 44,
+                                  height: 44,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                        if (loadingProgress == null)
+                                          return child;
+                                        return const Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        );
+                                      },
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                        Icons.person,
+                                        color: Colors.black54,
+                                        size: 28,
+                                      ),
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -561,10 +635,10 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
                         color: Colors.black12,
-                        offset: const Offset(0, 2),
+                        offset: Offset(0, 2),
                         blurRadius: 6,
                       ),
                     ],
@@ -787,6 +861,87 @@ class _VendorDashboardState extends ConsumerState<VendorDashboard> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Vendor image zoom screen — uses hero tag "vendorImage"
+class VendorImageZoomScreen extends StatelessWidget {
+  final String? imageUrl;
+  const VendorImageZoomScreen({super.key, required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl ?? '';
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Center(
+          child: Hero(
+            tag: "vendorImage",
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 1,
+              maxScale: 4,
+              child: url.trim().isEmpty
+                  ? const Icon(Icons.person, color: Colors.white, size: 120)
+                  : Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 120,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// User image zoom screen — heroTag should be unique per user (passed from caller)
+class UserImageZoomScreen extends StatelessWidget {
+  final String heroTag;
+  final String imageUrl;
+  const UserImageZoomScreen({
+    super.key,
+    required this.heroTag,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Center(
+          child: Hero(
+            tag: heroTag,
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 1,
+              maxScale: 4,
+              child: url.trim().isEmpty
+                  ? const Icon(Icons.person, color: Colors.white, size: 120)
+                  : Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 120,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

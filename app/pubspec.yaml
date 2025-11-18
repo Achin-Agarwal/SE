@@ -51,6 +51,8 @@ dependencies:
   http_parser: ^4.1.2
   animated_text_kit: ^4.3.0
   shimmer: ^3.0.0
+  pdf: ^3.11.3
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:

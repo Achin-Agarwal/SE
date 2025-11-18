@@ -77,7 +77,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       body: Center(
         child: SizedBox(
           width: size.width * 0.6,
-          height: size.width * 0.6,
+          height: size.width * 0.6, 
           child: Lottie.asset(
             'assets/cocktail.json',
             repeat: true,
