@@ -61,6 +61,7 @@ export async function postProjectMessage(req, res) {
     const aiText =
       aiResponse.data?.reply_text ||
       "Sorry, I couldn't get a response from the AI.";
+    console.log(aiResponse.data);
     const userMsg = { sender, message, timestamp: new Date() };
     const aiMsg = { sender: "ai", message: aiText, timestamp: new Date() };
     project.chat.push(userMsg);
@@ -88,6 +89,7 @@ export async function generateFlowChart(req, res) {
       "https://eventflow-kd8x.onrender.com/generate-flowchart";
     const payload = { chat_history };
     const aiResponse = await axios.post(AI_API_URL, payload);
+    console.log(aiResponse.data);
     const { updated_plan_json, error } = aiResponse.data || {};
     if (error && error !== null) {
       return res.json({ error, aiPoints: project.aiPoints || [] });
